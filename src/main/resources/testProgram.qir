@@ -1,0 +1,21 @@
+const $s = "abc"
+
+struct #Point($a: Int, $b: Int)
+
+extern fn @print($str: *Char): Unit
+extern fn @malloc($size: Int): *Char
+
+fn @main(): Unit
+    @L1:
+        $a = 1
+        $b = 2
+        $c = addi $a $b
+        $d: #Point = 0
+        $d.$a = $a
+        $d.$b = $c
+        $d = call @print($a, $b)
+        $m: *#Point = call @malloc(3)
+        $x = [$a]$m
+        $x.$a = 4
+        [2]$m = $x
+        ret 0
