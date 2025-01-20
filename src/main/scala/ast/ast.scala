@@ -1,6 +1,6 @@
 import parsley.generic.*
 
-object ast {
+package object ast {
   sealed trait ProgramUnit
 
   sealed trait FnDecl extends ProgramUnit:
@@ -26,7 +26,7 @@ object ast {
 
   case class Program(lines: List[ProgramUnit])
 
-  case class ConstDecl(name: LValue, value: Const) extends ProgramUnit
+  case class ConstDecl(name: String, value: Const) extends ProgramUnit
 
   case class ConcreteFnDecl(name: LabelValue, args: List[Param], retTy: ValueType, block: Block) extends FnDecl
 
@@ -42,7 +42,7 @@ object ast {
 
   case class LabelValue(name: String)
 
-  case class LabelledBlock(name: LabelValue, stmts: List[Stmt])
+  case class LabelledBlock(name: LabelValue, stmts: List[Stmt], jump: Jump)
 
   case class TypePointer(element: ValueType) extends ValueType
 
@@ -62,9 +62,13 @@ object ast {
 
   case class AssignElement(dst: ArrayAccess, src: Atom) extends Stmt
 
-  case class Ret(value: Atom) extends Stmt
+  sealed trait Jump
 
-  case class Branch(test: Atom, trueLabel: LabelValue, falseLabel: LabelValue) extends Stmt
+  case class Ret(value: Atom) extends Jump
+
+  case class Goto(label: LabelValue) extends Jump
+
+  case class Branch(test: Atom, trueLabel: LabelValue, falseLabel: LabelValue) extends Jump
 
   case class Var(name: String) extends LValue
 
@@ -82,7 +86,7 @@ object ast {
 
   object Program extends ParserBridge1[List[ProgramUnit], Program]
 
-  object ConstDecl extends ParserBridge2[LValue, Const, ProgramUnit]
+  object ConstDecl extends ParserBridge2[String, Const, ProgramUnit]
 
   object ConcreteFnDecl extends ParserBridge4[LabelValue, List[Param], ValueType, Block, ProgramUnit]
 
@@ -98,7 +102,7 @@ object ast {
 
   object LabelValue extends ParserBridge1[String, LabelValue]
 
-  object LabelledBlock extends ParserBridge2[LabelValue, List[Stmt], LabelledBlock]
+  object LabelledBlock extends ParserBridge3[LabelValue, List[Stmt], Jump, LabelledBlock]
 
   case object TypeUnit extends ValueType with ParserBridge0[ValueType]
 
@@ -126,9 +130,11 @@ object ast {
 
   object AssignElement extends ParserBridge2[ArrayAccess, Atom, Stmt]
 
-  object Ret extends ParserBridge1[Atom, Stmt]
+  object Ret extends ParserBridge1[Atom, Jump]
 
-  object Branch extends ParserBridge3[Atom, LabelValue, LabelValue, Stmt]
+  object Goto extends ParserBridge1[LabelValue, Jump]
+
+  object Branch extends ParserBridge3[Atom, LabelValue, LabelValue, Jump]
 
   case object ConstUnit extends Const with ParserBridge0[Const]
 

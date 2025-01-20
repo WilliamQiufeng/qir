@@ -1,3 +1,5 @@
+package parser
+
 import parsley.Parsley
 import parsley.character.newline
 import parsley.token.descriptions.SpaceDesc
@@ -17,7 +19,7 @@ object lexer {
       identifierLetter = Basic(c => c.isLetterOrDigit || c == '_'),
     ),
     symbolDesc = SymbolDesc.plain.copy(
-      hardKeywords = Set("label", "fn", "extern", "call", "addi", "subi", "muli", "divi", "const", "struct", "ret", "branch"),
+      hardKeywords = Set("label", "fn", "extern", "call", "addi", "subi", "muli", "divi", "const", "struct", "ret", "branch", "goto"),
       hardOperators = Set("="),
     ),
     numericDesc = NumericDesc.plain.copy(

@@ -1,5 +1,6 @@
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
+import semantic.SemanticAnalysis
 
 
 val hello: Parsley[Unit] = ('h' ~> ("ello" | "i") ~> " world!").void
@@ -9,7 +10,11 @@ def hi(): Unit = {
   val f = io.Source.fromResource("testProgram.qir")
   val l = try f.mkString finally f.close()
   println(l)
-  for i <- 1 to 10 yield println(time(parser.program.parse(l)))
+  val ast = parser.program.parse(l)
+  println(ast)
+  val seman = SemanticAnalysis(ast.get)
+  println(seman.fillDeclarations())
+  println(seman.globalSymbolTable)
 }
 
 def time[R](block: => R): R = {
