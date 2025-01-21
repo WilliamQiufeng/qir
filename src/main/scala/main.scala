@@ -9,7 +9,7 @@ val hello: Parsley[Unit] = ('h' ~> ("ello" | "i") ~> " world!").void
 
 @main
 def hi(): Unit = {
-  val f = io.Source.fromResource("testProgram.qir")
+  val f = io.Source.fromResource("testCfg33.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)

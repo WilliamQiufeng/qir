@@ -14,13 +14,15 @@ class BlockEdge(source: Block, target: Block) extends AbstractDiEdge[Block](sour
 //type BlockEdge = DiEdge[Block]
 
 class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
-  override def toString = s"Block $label(idom=${idom.map(_.label)}, dom=${dominators.map(_.label)})${tacs.mkString("{\n  ", "\n  ", "\n}")}"
+  override def toString = s"Block $label(df=${dominanceFrontier.map(_.label)}, idom=${idom.map(_.label)}, dom=${dominators.map(_.label)})${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 
   var dominators: Set[Block] = Set.empty
 
   def strictDominators: Set[Block] = dominators.excl(this)
 
   var idom: Option[Block] = None
+
+  var dominanceFrontier: Set[Block] = Set.empty
 
   infix def dom(block: Block): Boolean = block.dominators.contains(this)
 
@@ -55,5 +57,13 @@ extension (g: Graph[Block, BlockEdge]) {
     for b <- g.nodes do
       val sdoms = b.strictDominators
       b.idom = sdoms.find(d => sdoms.excl(d).forall(!_.strictDominators.contains(d)))
+  }
+
+  def calculateDominanceFrontiers(): Unit = {
+    for edge <- g.edges do
+      var x = edge.source
+      while !(x sdom edge.target) do
+        x.dominanceFrontier = x.dominanceFrontier.incl(edge.target)
+        x = x.idom.get
   }
 }

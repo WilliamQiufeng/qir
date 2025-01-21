@@ -57,6 +57,8 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
 
   graph.calculateDominators(startBlock)
 
+  graph.calculateDominanceFrontiers()
+
   private val root = DotRootGraph(
     directed = true,
     id = Some("MyDot"),

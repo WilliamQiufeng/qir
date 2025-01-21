@@ -1,0 +1,8 @@
+fn @f(): Unit
+    @A: branch 1 @G @B
+    @B: branch 1 @E @C
+    @C: goto @D
+    @D: goto @E
+    @E: goto @F
+    @F: goto @G
+    @G: ret
