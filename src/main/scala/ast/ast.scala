@@ -20,7 +20,9 @@ package object ast {
 
   sealed trait Atom extends Expr
 
-  sealed trait Const extends Atom
+  sealed trait Const(repr: String) extends Atom {
+    override def toString: String = repr
+  }
 
   case class Program(lines: List[ProgramUnit])
 
@@ -76,13 +78,13 @@ package object ast {
 
   //  case class ConstFieldAccess(from: Var, fieldName: String) extends Var
 
-  case class ConstInteger(value: BigInt) extends Const
+  case class ConstInteger(value: BigInt) extends Const(value.toString)
 
-  case class ConstFloat(value: BigDecimal) extends Const
+  case class ConstFloat(value: BigDecimal) extends Const(value.toString)
 
-  case class ConstString(value: String) extends Const
+  case class ConstString(value: String) extends Const(value.toString)
 
-  case class ConstChar(value: Int) extends Const
+  case class ConstChar(value: Int) extends Const(value.toString)
 
   object Program extends ParserBridge1[List[ProgramUnit], Program]
 
@@ -138,7 +140,7 @@ package object ast {
 
   object Branch extends ParserBridge3[Atom, LabelValue, LabelValue, Jump]
 
-  case object ConstUnit extends Const with ParserBridge0[Const]
+  case object ConstUnit extends Const("()") with ParserBridge0[Const]
 
   object Local extends ParserBridge1[String, Local]
 

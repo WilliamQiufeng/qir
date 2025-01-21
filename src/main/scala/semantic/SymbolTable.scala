@@ -4,7 +4,7 @@ import cats.syntax.all.*
 import scala.collection.mutable
 
 class IRSymbol(val temp: Temp, var ty: Type) {
-  override def toString = s"IRSymbol($temp, $ty)"
+  override def toString = s"($temp :: $ty)"
 
   var debugName: Option[String] = None
 }
@@ -16,7 +16,7 @@ class ConstIRSymbol(val const: ast.Const, temp: Temp) extends IRSymbol(temp, con
   case ast.ConstChar(_) => CharType
   case ast.ConstUnit => UnitType) {
 
-  override def toString = s"ConstIRSymbol($const, $temp, $ty)"
+  override def toString = s"($const, $temp :: $ty)"
 }
 
 sealed trait SymbolTable {

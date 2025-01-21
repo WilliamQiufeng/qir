@@ -25,7 +25,7 @@ class Move(definition: IRSymbol, source: IRSymbol) extends Tac(Array(source), de
 }
 
 class Call(definition: IRSymbol, val function: IRSymbol, arguments: List[IRSymbol]) extends Tac(arguments.toArray, definition.some) {
-  override def toString = s"$definition <- call $function, $arguments"
+  override def toString = s"$definition <- call $function${arguments.mkString("(", ", ", ")")}"
 }
 
 

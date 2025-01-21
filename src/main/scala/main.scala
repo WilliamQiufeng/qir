@@ -24,6 +24,7 @@ def hi(): Unit = {
       case d: ConcreteFnDecl =>
         val res = FunctionDag(seman, d)
         println(res.toDot)
+        println(res.errors)
       case _ =>
   }
 }

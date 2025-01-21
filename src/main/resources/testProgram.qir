@@ -8,6 +8,12 @@ struct #B($b: *#A)
 extern fn @print($str: *Char): Unit
 extern fn @malloc($size: Int): *Char
 
+fn @f($a: Int, $b: Int): Int
+    declare $c: Int
+    @L1:
+        $c = addi $a $b
+        ret $c
+
 fn @main(): Unit
     declare $a: Int
     declare $b: Int
@@ -22,6 +28,9 @@ fn @main(): Unit
         $d = 0
         $d = call @print($a, $b)
         $m = call @malloc(3)
-        //$x = [$a]$m
-        //[2]$m = $x
-        ret 0
+        branch $a @L2 @L3
+    @L2:
+        $a = subi $a 1
+        goto @L1
+    @L3:
+        ret

@@ -1,38 +1,40 @@
 package semantic
 
-sealed trait Type {
+sealed trait Type(repr: String) {
   val size: Int
+
+  override def toString: String = repr
 }
 
-case object UnitType extends Type {
+case object UnitType extends Type("Unit") {
   override val size: Int = 0
 }
 
-case object IntType extends Type {
+case object IntType extends Type("Int") {
   override val size = 4
 }
 
-case object CharType extends Type {
+case object CharType extends Type("Char") {
   override val size = 1
 }
 
 
-case object FloatType extends Type {
+case object FloatType extends Type("Float") {
   override val size = 8
 }
 
-case class PointerType(memberType: () => Type) extends Type {
+case class PointerType(memberType: () => Type) extends Type("Pointer") {
   override val size: Int = 8
 }
 
-case class StructType(memberTypes: List[Type], symbolTable: StructSymbolTable) extends Type {
+case class StructType(memberTypes: List[Type], symbolTable: StructSymbolTable) extends Type(symbolTable.types.mkString("{", ", ", "}")) {
   override val size: Int = memberTypes.map(_.size).sum
 }
 
-case class ArrayType(memberType: Type, length: Int) extends Type {
+case class ArrayType(memberType: Type, length: Int) extends Type(s"[$length]$memberType") {
   override val size: Int = memberType.size * length
 }
 
-case class FunctionType(argTypes: List[Type], retType: Type) extends Type {
+case class FunctionType(argTypes: List[Type], retType: Type) extends Type(s"${argTypes.mkString("(", ", ", ")")}->$retType") {
   override val size: Int = 8
 }
