@@ -5,13 +5,15 @@ import scala.collection.mutable
 
 class IRSymbol(val temp: Temp, var ty: Type) {
   override def toString = s"IRSymbol($temp, $ty)"
+
+  var debugName: Option[String] = None
 }
 
 class ConstIRSymbol(val const: ast.Const, temp: Temp) extends IRSymbol(temp, const match
-  case ast.ConstInteger(value) => IntType
-  case ast.ConstFloat(value) => FloatType
-  case ast.ConstString(value) => PointerType(() => CharType)
-  case ast.ConstChar(value) => CharType
+  case ast.ConstInteger(_) => IntType
+  case ast.ConstFloat(_) => FloatType
+  case ast.ConstString(_) => PointerType(() => CharType)
+  case ast.ConstChar(_) => CharType
   case ast.ConstUnit => UnitType) {
 
   override def toString = s"ConstIRSymbol($const, $temp, $ty)"
@@ -30,6 +32,8 @@ private class HashMapSymbolTable extends SymbolTable {
     map.addOne((name, symbol))
     symbol
   }
+
+  def values: Iterable[IRSymbol] = map.values
 
   override def toString = s"${getClass.getSimpleName}(${map.mkString("{\n  ", "\n  ", "\n}")})"
 }

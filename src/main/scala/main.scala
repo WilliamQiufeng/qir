@@ -1,3 +1,5 @@
+import ast.ConcreteFnDecl
+import dag.FunctionDag
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
@@ -15,6 +17,15 @@ def hi(): Unit = {
   val seman = SemanticAnalysis(ast.get)
   println(seman.fillDeclarations())
   println(seman.globalSymbolTable)
+  println(seman.programUnitMap)
+  for (x <- seman.programUnitMap.values) {
+    println(x)
+    x match
+      case d: ConcreteFnDecl =>
+        val res = FunctionDag(seman, d)
+        println(res.toDot)
+      case _ =>
+  }
 }
 
 def time[R](block: => R): R = {

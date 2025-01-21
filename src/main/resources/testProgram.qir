@@ -9,16 +9,19 @@ extern fn @print($str: *Char): Unit
 extern fn @malloc($size: Int): *Char
 
 fn @main(): Unit
+    declare $a: Int
+    declare $b: Int
+    declare $c: Int
+    declare $d: Unit
+    declare $m: *Char
+    declare $x: Char
     @L1:
         $a = 1
         $b = 2
         $c = addi $a $b
-        $d: #Point = 0
-        $d.$a = $a
-        $d.$b = $c
+        $d = 0
         $d = call @print($a, $b)
-        $m: *#Point = call @malloc(3)
-        $x = [$a]$m
-        $x.$a = 4
-        [2]$m = $x
+        $m = call @malloc(3)
+        //$x = [$a]$m
+        //[2]$m = $x
         ret 0

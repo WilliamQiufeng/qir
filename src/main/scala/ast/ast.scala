@@ -18,8 +18,6 @@ package object ast {
 
   sealed trait Stmt
 
-  sealed trait LValue extends Expr, Atom
-
   sealed trait Atom extends Expr
 
   sealed trait Const extends Atom
@@ -38,7 +36,7 @@ package object ast {
 
   case class Member(name: String, ty: ValueType)
 
-  case class Block(labelledBlocks: List[LabelledBlock])
+  case class Block(declarations: List[Declaration], labelledBlocks: List[LabelledBlock])
 
   case class LabelValue(name: String)
 
@@ -58,9 +56,11 @@ package object ast {
 
   case class Call(fn: LabelValue, args: List[Atom]) extends Expr
 
-  case class Assign(dst: LValue, ty: Option[ValueType], src: Expr) extends Stmt
+  case class Assign(dst: Local, src: Expr) extends Stmt
 
   case class AssignElement(dst: ArrayAccess, src: Atom) extends Stmt
+
+  case class Declaration(local: Local, ty: ValueType)
 
   sealed trait Jump
 
@@ -70,11 +70,11 @@ package object ast {
 
   case class Branch(test: Atom, trueLabel: LabelValue, falseLabel: LabelValue) extends Jump
 
-  case class Var(name: String) extends LValue
+  case class Local(name: String) extends Expr, Atom
 
-  case class ArrayAccess(offset: Atom, from: LValue) extends Expr
+  case class ArrayAccess(offset: Atom, from: Local) extends Expr
 
-  case class ConstFieldAccess(from: LValue, fieldName: String) extends LValue
+  //  case class ConstFieldAccess(from: Var, fieldName: String) extends Var
 
   case class ConstInteger(value: BigInt) extends Const
 
@@ -98,7 +98,7 @@ package object ast {
 
   object Member extends ParserBridge2[String, ValueType, Member]
 
-  object Block extends ParserBridge1[List[LabelledBlock], Block]
+  object Block extends ParserBridge2[List[Declaration], List[LabelledBlock], Block]
 
   object LabelValue extends ParserBridge1[String, LabelValue]
 
@@ -126,9 +126,11 @@ package object ast {
 
   object Call extends ParserBridge2[LabelValue, List[Atom], Expr]
 
-  object Assign extends ParserBridge3[LValue, Option[ValueType], Expr, Stmt]
+  object Assign extends ParserBridge2[Local, Expr, Stmt]
 
   object AssignElement extends ParserBridge2[ArrayAccess, Atom, Stmt]
+
+  object Declaration extends ParserBridge2[Local, ValueType, Declaration]
 
   object Ret extends ParserBridge1[Atom, Jump]
 
@@ -138,9 +140,9 @@ package object ast {
 
   case object ConstUnit extends Const with ParserBridge0[Const]
 
-  object Var extends ParserBridge1[String, LValue]
+  object Local extends ParserBridge1[String, Local]
 
-  object ArrayAccess extends ParserBridge2[Atom, LValue, ArrayAccess]
+  object ArrayAccess extends ParserBridge2[Atom, Local, ArrayAccess]
 
   object ConstInteger extends ParserBridge1[BigInt, Const]
 

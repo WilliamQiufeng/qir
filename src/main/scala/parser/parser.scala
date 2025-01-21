@@ -8,7 +8,7 @@ import parsley.expr.chain
 
 package object parser {
   lazy val member: Parsley[Member] = Member(VAR_ID, ":" ~> valueType)
-  lazy val block: Parsley[Block] = Block(many(labelledBlock))
+  lazy val block: Parsley[Block] = Block(many(declaration), many(labelledBlock))
   lazy val program: Parsley[Program] = fully(Program(some(programUnit)))
   private lazy val valueType: Parsley[ValueType] =
     ("Unit" as TypeUnit)
@@ -23,12 +23,13 @@ package object parser {
     | arrayAccess
     | atom
   private lazy val stmt =
-    Assign(lvalue, option(":" ~> valueType), "=" ~> expr)
+    Assign(local, "=" ~> expr)
       | AssignElement(arrayAccess, "=" ~> atom)
   private lazy val jump =
     Ret("ret" ~> (atom <|> pure(ConstUnit)))
       | Branch("branch" ~> atom, labelValue, labelValue)
       | Goto("goto" ~> labelValue)
+  private lazy val declaration = Declaration("declare" ~> local, ":" ~> valueType)
   private lazy val labelledBlock = LabelledBlock(labelValue, ":" ~> many(stmt), jump)
   private lazy val programUnit =
     ConcreteFnDecl("fn" ~> labelValue, parenList(param), ":" ~> valueType, block)
@@ -36,10 +37,10 @@ package object parser {
       | ConstDecl("const" ~> VAR_ID, "=" ~> const)
       | StructDecl("struct" ~> STRUCT_ID, parenList(member))
   private val const: Parsley[Const] = atomic(ConstFloat(FLOAT)) | ConstInteger(INTEGER) | ConstString(STRING) | ConstChar(CHAR)
-  private val lvalue: Parsley[LValue] = chain.postfix(Var(VAR_ID), ("." ~> VAR_ID).map(n => ConstFieldAccess(_, n)))
+  private val local: Parsley[Local] = Local(VAR_ID)
   private val labelValue: Parsley[LabelValue] = LabelValue(LABEL_ID)
-  private val atom: Parsley[Atom] = lvalue | const
-  private val arrayAccess: Parsley[ArrayAccess] = ArrayAccess("[" ~> atom <~ "]", Var(VAR_ID))
+  private val atom: Parsley[Atom] = local | const
+  private val arrayAccess: Parsley[ArrayAccess] = ArrayAccess("[" ~> atom <~ "]", Local(VAR_ID))
 
   private def parenList[T](arg: Parsley[T]) = "(" ~> sepEndBy(arg, ",") <~ ")"
 }
