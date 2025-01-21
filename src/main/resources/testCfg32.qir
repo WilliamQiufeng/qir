@@ -1,0 +1,21 @@
+
+
+fn @g(): Int
+    declare $x: Int
+    declare $y: Int
+    declare $tmp: Int
+    @A: branch 1 @B @C
+    @B: $y = 0
+        $x = 0
+        goto @D
+    @C: $tmp = $x
+        $x = $y
+        $y = $tmp
+        branch 1 @D @E
+    @D: $x = call @f($x, $y)
+        branch 1 @A @E
+    @E: ret $x
+fn @f($a: Int, $b: Int): Int
+    declare $tmp: Int
+    @A: $tmp = addi $a $b
+        ret $tmp

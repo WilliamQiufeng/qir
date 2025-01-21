@@ -3,13 +3,14 @@ import dag.FunctionDag
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
+import dag.toDot
 
 
 val hello: Parsley[Unit] = ('h' ~> ("ello" | "i") ~> " world!").void
 
 @main
 def hi(): Unit = {
-  val f = io.Source.fromResource("testProgram.qir")
+  val f = io.Source.fromResource("testCfg32.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)
@@ -23,7 +24,7 @@ def hi(): Unit = {
     x match
       case d: ConcreteFnDecl =>
         val res = FunctionDag(seman, d)
-        println(res.toDot)
+        println(res.graph.toDot)
         println(res.errors)
         res.symbolTable.values.foreach(s =>
           println(s"$s: uses:${s.uses} defs: ${s.defs}")

@@ -10,7 +10,9 @@ class IRSymbol(val temp: Temp, var ty: Type) {
 
   var defs: Set[BlockTac] = Set.empty
   var uses: Set[BlockTac] = Set.empty
+  var reachingDef: Option[IRSymbol] = None
   var debugName: Option[String] = None
+  val stack: mutable.Stack[IRSymbol] = mutable.Stack.empty
 }
 
 class ConstIRSymbol(val const: ast.Const, temp: Temp) extends IRSymbol(temp, const match
