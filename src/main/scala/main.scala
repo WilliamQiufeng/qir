@@ -9,7 +9,7 @@ val hello: Parsley[Unit] = ('h' ~> ("ello" | "i") ~> " world!").void
 
 @main
 def hi(): Unit = {
-  val f = io.Source.fromResource("testCfg33.qir")
+  val f = io.Source.fromResource("testProgram.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)
@@ -25,6 +25,9 @@ def hi(): Unit = {
         val res = FunctionDag(seman, d)
         println(res.toDot)
         println(res.errors)
+        res.symbolTable.values.foreach(s =>
+          println(s"$s: uses:${s.uses} defs: ${s.defs}")
+        )
       case _ =>
   }
 }

@@ -1,11 +1,15 @@
 package semantic
 
 import cats.syntax.all.*
+import dag.BlockTac
+
 import scala.collection.mutable
 
 class IRSymbol(val temp: Temp, var ty: Type) {
   override def toString = s"($temp :: $ty)"
 
+  var defs: Set[BlockTac] = Set.empty
+  var uses: Set[BlockTac] = Set.empty
   var debugName: Option[String] = None
 }
 

@@ -11,9 +11,16 @@ class BlockEdge(source: Block, target: Block) extends AbstractDiEdge[Block](sour
 
 }
 
+case class BlockTac(tac: Tac, block: Block) {
+  override def toString: String = s"$tac in ${block.label}"
+}
+
 //type BlockEdge = DiEdge[Block]
 
 class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
+
+  fillDefUse()
+
   override def toString = s"Block $label(df=${dominanceFrontier.map(_.label)}, idom=${idom.map(_.label)}, dom=${dominators.map(_.label)})${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 
   var dominators: Set[Block] = Set.empty
@@ -29,6 +36,12 @@ class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
   infix def sdom(block: Block): Boolean = (this dom block) && this != block
 
   def self: Block = this
+
+  def fillDefUse(): Unit = {
+    for tac <- tacs do
+      tac.sources.foreach(s => s.uses = s.uses.incl(BlockTac(tac, this)))
+      tac.definition.foreach(s => s.defs = s.defs.incl(BlockTac(tac, this)))
+  }
 }
 
 extension (g: Graph[Block, BlockEdge]) {

@@ -18,7 +18,7 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
   private val startBlock: Label = addTempBlock(Block(Label(), ArrayBuffer.empty))
   private val endBlock: Label = addTempBlock(Block(Label(), ArrayBuffer(Ret(returnSink))))
   private val labelSymbolMap: mutable.HashMap[LabelValue, Label] = mutable.HashMap.empty
-  private val symbolTable: FunctionSymbolTable = FunctionSymbolTable()
+  val symbolTable: FunctionSymbolTable = FunctionSymbolTable()
   val errors: ArrayBuffer[SemanticError] = ArrayBuffer.empty
 
   // Declare arguments and declaration
