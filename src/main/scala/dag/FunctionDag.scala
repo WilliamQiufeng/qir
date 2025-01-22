@@ -17,7 +17,7 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
   private val returnSink: IRSymbol = IRSymbol(Temp(), functionDecl.retTy)
   private val labelMap: mutable.HashMap[Label, Block] = mutable.HashMap.empty
   private val startBlock: Label = addTempBlock(Block(Label(), ArrayBuffer.empty))
-  private val endBlock: Label = addTempBlock(Block(Label(), ArrayBuffer(Ret(returnSink))))
+  private val endBlock: Label = addTempBlock(Block(Label(), ArrayBuffer(Ret(returnSink.some))))
   private val labelSymbolMap: mutable.HashMap[LabelValue, Label] = mutable.HashMap.empty
   val symbolTable: FunctionSymbolTable = FunctionSymbolTable()
   val errors: ArrayBuffer[SemanticError] = ArrayBuffer.empty
@@ -62,41 +62,24 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
 
   val dominatorTree: Graph[Block, BlockEdge] = graph.makeDomTree()
 
-  val globals: mutable.Set[IRSymbol] = mutable.Set.empty
-  val globalBlocks: mutable.HashMap[IRSymbol, mutable.Set[Block]] = mutable.HashMap.empty
-  for b <- graph.nodes do
-    val varKill: mutable.Set[IRSymbol] = mutable.Set.empty
-    for i <- b.tacs do
-      globals.addAll(i.sources.filterNot(varKill.contains))
-      i.definition.foreach(dst =>
-        varKill.addOne(dst)
-        globalBlocks.getOrElseUpdate(dst, mutable.Set.empty).addOne(b)
-      )
-
   insertPhi()
 
-  rename(startBlock)
+  rename()
 
 
   private implicit def valueTypeToType(valueType: ValueType): Type =
     semanticAnalysis.translateValueType(valueType).toOption.get
 
-  private implicit def localToTemp(local: Local): IRSymbol = local.name
+  private implicit def localToTemp(local: Local): Option[IRSymbol] = local.name
 
-  private implicit def atomToTemp(atom: Atom): IRSymbol = {
+  private implicit def atomToTemp(atom: Atom): Option[IRSymbol] = {
     atom match
-      case const: ast.Const => semanticAnalysis.getOrAddConst(const)
+      case const: ast.Const => semanticAnalysis.getOrAddConst(const).some
       case local: Local => local
   }
 
-  private implicit def stringToTemp(name: String): IRSymbol = {
-    symbolTable.lookup(name) match {
-      case None => semanticAnalysis.globalSymbolTable.lookup(name) match {
-        case None => throw new Exception(s"Local $name not found in $functionDecl")
-        case Some(s) => s
-      }
-      case Some(s) => s
-    }
+  private implicit def stringToTemp(name: String): Option[IRSymbol] = {
+    symbolTable.lookup(name) <+> semanticAnalysis.globalSymbolTable.lookup(name)
   }
 
   private implicit def lookupBlock(label: Label): Block = labelMap(label)
@@ -117,21 +100,21 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
         case ast.Assign(dst, src) => src match
           case expr: ast.BinaryExpr => expr match
             case ast.AddInt(left, right) =>
-              checkType(IntType, dst.ty, left.ty, right.ty)
+              //              checkType(IntType, dst.ty, left.ty, right.ty)
               arr.addOne(BinaryArith(BinaryArithOp.AddI, dst, left, right))
             case ast.SubInt(left, right) =>
-              checkType(IntType, dst.ty, left.ty, right.ty)
+              //              checkType(IntType, dst.ty, left.ty, right.ty)
               arr.addOne(BinaryArith(BinaryArithOp.SubI, dst, left, right))
             case ast.MulInt(left, right) =>
-              checkType(IntType, dst.ty, left.ty, right.ty)
+              //              checkType(IntType, dst.ty, left.ty, right.ty)
               arr.addOne(BinaryArith(BinaryArithOp.MulI, dst, left, right))
             case ast.DivInt(left, right) =>
-              checkType(IntType, dst.ty, left.ty, right.ty)
+              //              checkType(IntType, dst.ty, left.ty, right.ty)
               arr.addOne(BinaryArith(BinaryArithOp.DivI, dst, left, right))
           case value: Local => arr.addOne(Move(dst, value))
           case atom: ast.Atom => arr.addOne(Move(dst, atom))
           case ast.Call(fn, args) =>
-            arr.addOne(Call(dst, fn.name, args.map(atomToTemp)))
+            arr.addOne(Call(dst, fn.name, args.map(atomToTemp).toArray))
           case ast.ArrayAccess(offset, from) => ???
         case ast.AssignElement(dst, src) => ???
     }
@@ -139,8 +122,8 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
     val jump = block.jump
     jump match
       case ast.Ret(value) =>
-        checkType(returnSink.ty, value.ty)
-        arr.addOne(Move(returnSink, value))
+        //        checkType(returnSink.ty, value.ty)
+        arr.addOne(Move(returnSink.some, value))
         arr.addOne(Goto(endBlock))
       case ast.Goto(label) => arr.addOne(Goto(label))
       case ast.Branch(test, trueLabel, falseLabel) => arr.addOne(Branch(test, trueLabel, falseLabel))
@@ -153,98 +136,60 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
   }
 
   private def insertPhi(): Unit = {
-    for x <- globals do
-      val insertedBlocks: mutable.Set[Block] = mutable.Set.empty
-      val workList: mutable.Set[Block] = globalBlocks.getOrElse(x, mutable.Set.empty)
-      while workList.nonEmpty do
-        val b = workList.head
-        workList -= b
-        for d <- b.dominanceFrontier do
-          if insertedBlocks.add(d) then
-            val sources = Array.tabulate((graph get d).diPredecessors.size)(_ => x)
-            d.tacs.insert(0, Phi(x, sources))
-            workList += d
+    for symbol <- symbolTable.values do
+      var f: Set[Block] = Set.empty
+      var w: Set[Block] = Set.from(symbol.defs.map(_.block))
+      while w.nonEmpty do
+        val x = w.head
+        w = w.excl(x)
+        for y <- x.dominanceFrontier do
+          if !f.contains(y) then
+            val sources = Array.tabulate((graph get y).diPredecessors.size)(_ => symbol.some)
+            y.tacs.insert(0, Phi(symbol.some, sources))
+            f = f.incl(y)
+            if !symbol.defs.exists(_.block == y) then
+              w = w.incl(y)
   }
 
-  private def rename(b: Block): Unit = {
-    val symbolsOverwritten: mutable.Set[IRSymbol] = mutable.Set.empty
+  private def rename(): Unit = {
+    symbolTable.values.foreach(_.reachingDef = None)
 
-    // We don't need to keep track of more than one rewritten variables
-    def newName(symbol: IRSymbol): IRSymbol = {
-      val newSym = IRSymbol(Temp(), symbol.ty)
-      if !symbolsOverwritten.add(symbol) then
-        symbol.stack.pop()
-      symbol.stack.push(newSym)
-      newSym
-    }
+    dominatorTree.traverseDfs(dominatorTree get startBlock, b =>
+      for i <- b.tacs do
+        i match
+          case _: Phi =>
+          case _ =>
+            i.sources.mapInPlace {
+              case Some(v) =>
+                updateReachingDef(v, b)
+                v.reachingDef.map(_.symbol)
+              case None => None
+            }
 
-    // Give phi targets a new name
-    for i <- b.tacs do
-      i match
-        case _: Phi => i.definition = newName(i.definition.get).some
+        for v <- i.definition do
+          updateReachingDef(v, b)
+          val newV = IRSymbol(Temp(), v.ty)
+          i.definition = newV.some
+          newV.reachingDef = v.reachingDef
+          v.reachingDef = BlockSymbol(newV, b).some
+
+      b.diSuccessors.flatMap(_.tacs).foreach {
+        case phi: Phi =>
+          phi.sources.mapInPlace {
+            case Some(v) =>
+              updateReachingDef(v, b)
+              v.reachingDef.map(_.symbol)
+            case None => None
+          }
         case _ =>
-
-    // Rewrite sources and make new name for targets
-    b.tacs.foreach {
-      case _: Phi =>
-      case i =>
-        i.sources.mapInPlace { src =>
-          if globals.contains(src) && src.stack.nonEmpty then
-            src.stack.top
-          else
-            src
-        }
-        if i.definition.isDefined && globals.contains(i.definition.get) then
-          i.definition = newName(i.definition.get).some
-    }
-
-    (graph get b).diSuccessors.flatMap(_.tacs).foreach {
-      case phi: Phi =>
-        var changed = false
-        for srcIdx <- phi.sources.indices do
-          val src = phi.sources(srcIdx)
-          if !changed && globals.contains(src) && src.stack.nonEmpty then
-            phi.sources.update(srcIdx, src.stack.top)
-            changed = true
-      case _ =>
-    }
-
-    for s <- (dominatorTree get b).diSuccessors do
-      rename(s)
-
-    symbolsOverwritten.foreach(_.stack.pop())
+      }
+    )
   }
 
-  //  private def rename(): Unit = {
-  //    symbolTable.values.foreach(_.reachingDef = None)
-  //
-  //    dominatorTree.traverseDfs(dominatorTree get startBlock, b =>
-  //      for i <- b.tacs do
-  //        if !i.isInstanceOf[Phi] then
-  //          i.sources.mapInPlace(v =>
-  //            updateReachingDef(v, b)
-  //            v.reachingDef.get
-  //          )
-  //
-  //        for v <- i.definition do
-  //          updateReachingDef(v, b)
-  //          val newV = IRSymbol(Temp(), v.ty)
-  //          i.definition = newV.some
-  //          newV.reachingDef = v.reachingDef
-  //          v.reachingDef = newV.some
-  //
-  //      for phi <- b.diSuccessors.flatMap(_.tacs.filter(_.isInstanceOf[Phi])) do
-  //        phi.sources.mapInPlace(v =>
-  //          updateReachingDef(v, b)
-  //          v.reachingDef.get
-  //        )
-  //    )
-  //  }
-  //
-  //  private def updateReachingDef(v: IRSymbol, ib: Block): Unit = {
-  //    var r = v.reachingDef
-  //    while !(r.isEmpty || r.get.defs.exists(d => d.block dom ib)) do
-  //      r = r.flatMap(_.reachingDef)
-  //    v.reachingDef = r
-  //  }
+  private def updateReachingDef(v: IRSymbol, ib: Block): Unit = {
+    var r = v.reachingDef
+    while !(r.isEmpty || (r.get.block dom ib)) do
+      r = r.flatMap(_.symbol.reachingDef)
+    v.reachingDef = r
+  }
 }

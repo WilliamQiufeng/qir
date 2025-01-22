@@ -4,6 +4,9 @@ fn @g(): Int
     declare $x: Int
     declare $y: Int
     declare $tmp: Int
+    //@S: $x = 1
+    //    $y = 1
+    //    goto @A
     @A: branch 1 @B @C
     @B: $y = 0
         $x = 0

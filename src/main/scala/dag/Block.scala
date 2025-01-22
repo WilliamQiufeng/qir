@@ -8,11 +8,16 @@ import scalax.collection.mutable.Graph
 import tac.{Label, Tac}
 import scalax.collection.io.dot.*
 import implicits.*
+import semantic.IRSymbol
 
 import scala.collection.mutable
 
 class BlockEdge(source: Block, target: Block) extends AbstractDiEdge[Block](source, target) {
 
+}
+
+case class BlockSymbol(symbol: IRSymbol, block: Block) {
+  override def toString: String = s"$symbol in ${block.label}"
 }
 
 case class BlockTac(tac: Tac, block: Block) {
@@ -45,8 +50,14 @@ class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
 
   def fillDefUse(): Unit = {
     for tac <- tacs do
-      tac.sources.foreach(s => s.uses = s.uses.incl(BlockTac(tac, this)))
-      tac.definition.foreach(s => s.defs = s.defs.incl(BlockTac(tac, this)))
+      tac.sources.foreach {
+        case Some(s) => s.uses = s.uses.incl(BlockTac(tac, this))
+        case _ =>
+      }
+      tac.definition match {
+        case Some(s) => s.defs = s.defs.incl(BlockTac(tac, this))
+        case _ =>
+      }
   }
 }
 

@@ -1,7 +1,7 @@
 package semantic
 
 import cats.syntax.all.*
-import dag.BlockTac
+import dag.{BlockSymbol, BlockTac}
 
 import scala.collection.mutable
 
@@ -10,7 +10,7 @@ class IRSymbol(val temp: Temp, var ty: Type) {
 
   var defs: Set[BlockTac] = Set.empty
   var uses: Set[BlockTac] = Set.empty
-  var reachingDef: Option[IRSymbol] = None
+  var reachingDef: Option[BlockSymbol] = None
   var debugName: Option[String] = None
   val stack: mutable.Stack[IRSymbol] = mutable.Stack.empty
 }
