@@ -3,7 +3,7 @@ package dag
 import ast.{Atom, ConcreteFnDecl, LabelValue, LabelledBlock, Local, ValueType}
 import scalax.collection.mutable.Graph
 import scalax.collection.immutable as img
-import semantic.{ConstIRSymbol, FunctionSymbolTable, GlobalSymbolTable, IRSymbol, IntType, SemanticAnalysis, Temp, Type}
+import semantic.{ConstIRSymbol, FunctionSymbolTable, GlobalSymbolTable, IRSymbol, IntType, SSASymbol, SemanticAnalysis, Temp, Type}
 import tac.{BinaryArith, BinaryArithOp, Branch, Call, Goto, Jump, Label, Move, Phi, Ret, Tac}
 import scalax.collection.io.dot.*
 import implicits.*
@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
 
 class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val functionDecl: ConcreteFnDecl) {
-  private val returnSink: IRSymbol = IRSymbol(Temp(), functionDecl.retTy)
+  private val returnSink: IRSymbol = IRSymbol(Temp(), functionDecl.retTy, "%ret".some, true)
   private val labelMap: mutable.HashMap[Label, Block] = mutable.HashMap.empty
   private val startBlock: Label = addTempBlock(Block(Label(), ArrayBuffer.empty))
   private val endBlock: Label = addTempBlock(Block(Label(), ArrayBuffer(Ret(returnSink))))
@@ -24,10 +24,10 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
 
   // Declare arguments and declaration
   for (arg <- functionDecl.args) yield {
-    symbolTable.insert(arg.name, IRSymbol(Temp(), arg.ty))
+    symbolTable.insert(arg.name, IRSymbol(Temp(), arg.ty, arg.name.some))
   }
   for (declaration <- functionDecl.block.declarations) yield {
-    symbolTable.insert(declaration.local.name, IRSymbol(Temp(), declaration.ty))
+    symbolTable.insert(declaration.local.name, IRSymbol(Temp(), declaration.ty, declaration.local.name.some, true))
   }
 
   // Form labels and blocks
@@ -76,6 +76,8 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
   insertPhi()
 
   rename(startBlock)
+
+  graph.nodes.foreach(_.fillDefUse())
 
 
   private implicit def valueTypeToType(valueType: ValueType): Type =
@@ -172,7 +174,7 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
 
     // We don't need to keep track of more than one rewritten variables
     def newName(symbol: IRSymbol): IRSymbol = {
-      val newSym = IRSymbol(Temp(), symbol.ty)
+      val newSym = SSASymbol(symbol)
       if !symbolsOverwritten.add(symbol) then
         symbol.stack.pop()
       symbol.stack.push(newSym)

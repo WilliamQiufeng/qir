@@ -5,13 +5,16 @@ import dag.BlockTac
 
 import scala.collection.mutable
 
-class IRSymbol(val temp: Temp, var ty: Type) {
-  override def toString = s"($temp :: $ty)"
+class IRSymbol(val temp: Temp, var ty: Type,
+               var debugName: Option[String] = None, val undefined: Boolean = false) {
+  override def toString = s"${debugName.mkString}($temp)${if undefined then "⊥" else ""}"
 
-  var defs: Set[BlockTac] = Set.empty
   var uses: Set[BlockTac] = Set.empty
-  var debugName: Option[String] = None
   val stack: mutable.Stack[IRSymbol] = mutable.Stack.empty
+}
+
+class SSASymbol(val origin: IRSymbol) extends IRSymbol(Temp(), origin.ty) {
+  debugName = s"${origin.debugName.mkString}.$temp".some
 }
 
 class ConstIRSymbol(val const: ast.Const, temp: Temp) extends IRSymbol(temp, const match
@@ -21,7 +24,7 @@ class ConstIRSymbol(val const: ast.Const, temp: Temp) extends IRSymbol(temp, con
   case ast.ConstChar(_) => CharType
   case ast.ConstUnit => UnitType) {
 
-  override def toString = s"($const, $temp :: $ty)"
+  override def toString = s"$const($temp)"
 }
 
 sealed trait SymbolTable {

@@ -24,13 +24,16 @@ class SemanticAnalysis(val program: Program) {
       n <- programUnitMap.get(name).toRight(s"Undeclared function/structure: $name")
       argDec <- fillDeclaration(n, visited.incl(name))
     }
-    yield argDec.ty
+    yield
+      argDec.debugName = name.some
+      argDec.ty
   }
 
   def getOrAddConst(value: Const): ConstIRSymbol = constMap.getOrElseUpdate(value, ConstIRSymbol(value, Temp()))
 
   private def insertConst(name: String, value: Const) = {
     val constSymbol = ConstIRSymbol(value, Temp())
+    constSymbol.debugName = name.some
     constMap.getOrElseUpdate(value, constSymbol)
     globalSymbolTable.insert(name, constSymbol).asRight
   }
@@ -48,7 +51,7 @@ class SemanticAnalysis(val program: Program) {
       for {
         argTypes <- args.traverse(a => translateValueType(a.ty, visited))
         retType <- translateValueType(retTy, visited)
-      } yield globalSymbolTable.insert(name, IRSymbol(Temp(), FunctionType(argTypes, retType))))
+      } yield globalSymbolTable.insert(name, IRSymbol(Temp(), FunctionType(argTypes, retType), name.some)))
 
   private def fillDeclaration(programUnit: ProgramUnit, visited: Set[String]): Either[String, IRSymbol] = {
     programUnit match
@@ -60,7 +63,7 @@ class SemanticAnalysis(val program: Program) {
           memberTypes <- members.traverse(a => translateValueType(a.ty, visited))
         } yield {
           val structSymbolTable = StructSymbolTable(members.map(_.name), memberTypes)
-          globalSymbolTable.insert(name, IRSymbol(Temp(), StructType(memberTypes, structSymbolTable)))
+          globalSymbolTable.insert(name, IRSymbol(Temp(), StructType(memberTypes, structSymbolTable), name.some))
         })
       case ExternFnDecl(name, args, retTy) => fillFnDecl(name.name, args, retTy, visited)
   }

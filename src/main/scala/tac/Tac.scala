@@ -18,15 +18,15 @@ enum BinaryArithOp {
 class Binary(definition: IRSymbol, arg1: IRSymbol, arg2: IRSymbol) extends Tac(Array(arg1, arg2), definition.some)
 
 class BinaryArith(op: BinaryArithOp, target: IRSymbol, arg1: IRSymbol, arg2: IRSymbol) extends Binary(target, arg1, arg2) {
-  override def toString = s"$definition <- $op ${sources(0)} ${sources(1)}"
+  override def toString = s"${definition.mkString} <- $op ${sources(0)} ${sources(1)}"
 }
 
 class Move(target: IRSymbol, source: IRSymbol) extends Tac(Array(source), target.some) {
-  override def toString = s"$definition <- ${sources(0)}"
+  override def toString = s"${definition.mkString} <- ${sources(0)}"
 }
 
 class Call(target: IRSymbol, val function: IRSymbol, arguments: List[IRSymbol]) extends Tac(arguments.toArray, target.some) {
-  override def toString = s"$definition <- call $function${sources.mkString("(", ", ", ")")}"
+  override def toString = s"${definition.mkString} <- call $function${sources.mkString("(", ", ", ")")}"
 }
 
 
@@ -39,7 +39,7 @@ class Branch(test: IRSymbol, var label1: Label, var label2: Label) extends Tac(A
 }
 
 class Ret(value: IRSymbol) extends Tac(Array(value), None), Jump(Array()) {
-  override def toString: String = s"ret $value"
+  override def toString: String = s"ret ${sources(0)}"
 }
 
 class Phi(target: IRSymbol, args: Array[IRSymbol], blocks: Array[Block]) extends Tac(args, target.some) {
@@ -52,5 +52,6 @@ class Phi(target: IRSymbol, args: Array[IRSymbol], blocks: Array[Block]) extends
         true
       case None => false
   }
-  override def toString: String = s"$definition <- phi ${sources.map(_.temp).mkString("(", ", ", ")")}"
+
+  override def toString: String = s"${definition.mkString} <- phi ${sources.mkString("(", ", ", ")")}"
 }

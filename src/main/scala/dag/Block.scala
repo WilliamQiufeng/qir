@@ -23,8 +23,6 @@ case class BlockTac(tac: Tac, block: Block) {
 
 class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
 
-  fillDefUse()
-
   override def toString = s"Block $label(df=${dominanceFrontier.map(_.label)}, df+=${dominanceFrontierClosure.map(_.label)}, idom=${idom.map(_.label)}, dom=${dominators.map(_.label)})${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 
   var dominators: Set[Block] = Set.empty
@@ -46,7 +44,6 @@ class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
   def fillDefUse(): Unit = {
     for tac <- tacs do
       tac.sources.foreach(s => s.uses = s.uses.incl(BlockTac(tac, this)))
-      tac.definition.foreach(s => s.defs = s.defs.incl(BlockTac(tac, this)))
   }
 }
 

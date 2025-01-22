@@ -28,7 +28,7 @@ def hi(): Unit = {
         println(res.errors)
         println(res.symbolTable)
         res.symbolTable.values.foreach(s =>
-          println(s"$s: uses:${s.uses} defs: ${s.defs}")
+          println(s"$s: uses:${s.uses}")
         )
       case _ =>
   }
