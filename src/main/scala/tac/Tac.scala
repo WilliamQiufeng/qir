@@ -2,6 +2,7 @@ package tac
 
 import semantic.IRSymbol
 import cats.syntax.all.*
+import dag.Block
 
 sealed trait Tac(var sources: Array[IRSymbol], var definition: Option[IRSymbol])
 
@@ -41,6 +42,15 @@ class Ret(value: IRSymbol) extends Tac(Array(value), None), Jump(Array()) {
   override def toString: String = s"ret $value"
 }
 
-class Phi(target: IRSymbol, args: Array[IRSymbol]) extends Tac(args, target.some) {
+class Phi(target: IRSymbol, args: Array[IRSymbol], blocks: Array[Block]) extends Tac(args, target.some) {
+  private val blockSymbolMap = Map.from(blocks zip args.indices)
+
+  def replace(block: Block, transform: IRSymbol => IRSymbol): Boolean = {
+    blockSymbolMap.get(block) match
+      case Some(i) =>
+        sources.update(i, transform(sources(i)))
+        true
+      case None => false
+  }
   override def toString: String = s"$definition <- phi ${sources.map(_.temp).mkString("(", ", ", ")")}"
 }

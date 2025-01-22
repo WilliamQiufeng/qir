@@ -34,7 +34,7 @@ object lexer {
       commentStart = "/*",
       commentEnd = "*/",
       nestedComments = true,
-      space = Basic(c => c == ' ' || c == '\n' || c == '\t'),
+      space = Basic(c => c == ' ' || c == '\n' || c == '\t' || c == '\r'),
     )
   )
   private val lexer = new Lexer(desc)

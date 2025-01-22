@@ -62,8 +62,8 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
 
   val dominatorTree: Graph[Block, BlockEdge] = graph.makeDomTree()
 
-  val globals: mutable.Set[IRSymbol] = mutable.Set.empty
-  val globalBlocks: mutable.HashMap[IRSymbol, mutable.Set[Block]] = mutable.HashMap.empty
+  private val globals: mutable.Set[IRSymbol] = mutable.Set.empty
+  private val globalBlocks: mutable.HashMap[IRSymbol, mutable.Set[Block]] = mutable.HashMap.empty
   for b <- graph.nodes do
     val varKill: mutable.Set[IRSymbol] = mutable.Set.empty
     for i <- b.tacs do
@@ -161,8 +161,9 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
         workList -= b
         for d <- b.dominanceFrontier do
           if insertedBlocks.add(d) then
-            val sources = Array.tabulate((graph get d).diPredecessors.size)(_ => x)
-            d.tacs.insert(0, Phi(x, sources))
+            val preds = (graph get d).diPredecessors.map(_.self).toArray
+            val sources = preds.map(_ => x)
+            d.tacs.insert(0, Phi(x, sources, preds))
             workList += d
   }
 
@@ -199,13 +200,7 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
     }
 
     (graph get b).diSuccessors.flatMap(_.tacs).foreach {
-      case phi: Phi =>
-        var changed = false
-        for srcIdx <- phi.sources.indices do
-          val src = phi.sources(srcIdx)
-          if !changed && globals.contains(src) && src.stack.nonEmpty then
-            phi.sources.update(srcIdx, src.stack.top)
-            changed = true
+      case phi: Phi => phi.replace(b, src => if src.stack.nonEmpty then src.stack.top else src)
       case _ =>
     }
 
@@ -214,37 +209,4 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
 
     symbolsOverwritten.foreach(_.stack.pop())
   }
-
-  //  private def rename(): Unit = {
-  //    symbolTable.values.foreach(_.reachingDef = None)
-  //
-  //    dominatorTree.traverseDfs(dominatorTree get startBlock, b =>
-  //      for i <- b.tacs do
-  //        if !i.isInstanceOf[Phi] then
-  //          i.sources.mapInPlace(v =>
-  //            updateReachingDef(v, b)
-  //            v.reachingDef.get
-  //          )
-  //
-  //        for v <- i.definition do
-  //          updateReachingDef(v, b)
-  //          val newV = IRSymbol(Temp(), v.ty)
-  //          i.definition = newV.some
-  //          newV.reachingDef = v.reachingDef
-  //          v.reachingDef = newV.some
-  //
-  //      for phi <- b.diSuccessors.flatMap(_.tacs.filter(_.isInstanceOf[Phi])) do
-  //        phi.sources.mapInPlace(v =>
-  //          updateReachingDef(v, b)
-  //          v.reachingDef.get
-  //        )
-  //    )
-  //  }
-  //
-  //  private def updateReachingDef(v: IRSymbol, ib: Block): Unit = {
-  //    var r = v.reachingDef
-  //    while !(r.isEmpty || r.get.defs.exists(d => d.block dom ib)) do
-  //      r = r.flatMap(_.reachingDef)
-  //    v.reachingDef = r
-  //  }
 }
