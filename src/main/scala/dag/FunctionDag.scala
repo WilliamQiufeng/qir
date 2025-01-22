@@ -78,7 +78,6 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
   rename(startBlock)
 
 
-
   private implicit def valueTypeToType(valueType: ValueType): Type =
     semanticAnalysis.translateValueType(valueType).toOption.get
 
@@ -154,60 +153,66 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
   }
 
   private def insertPhi(): Unit = {
-    for symbol <- symbolTable.values do
-      var f: Set[Block] = Set.empty
-      var w: Set[Block] = Set.from(symbol.defs.map(_.block))
-      while w.nonEmpty do
-        val x = w.head
-        w = w.excl(x)
-        for y <- x.dominanceFrontier do
-          if !f.contains(y) then
-            val sources = Array.tabulate((graph get y).diPredecessors.size)(_ => symbol)
-            y.tacs.insert(0, Phi(symbol, sources))
-            f = f.incl(y)
-            if !symbol.defs.exists(_.block == y) then
-              w = w.incl(y)
+    for x <- globals do
+      val insertedBlocks: mutable.Set[Block] = mutable.Set.empty
+      val workList: mutable.Set[Block] = globalBlocks.getOrElse(x, mutable.Set.empty)
+      while workList.nonEmpty do
+        val b = workList.head
+        workList -= b
+        for d <- b.dominanceFrontier do
+          if insertedBlocks.add(d) then
+            val sources = Array.tabulate((graph get d).diPredecessors.size)(_ => x)
+            d.tacs.insert(0, Phi(x, sources))
+            workList += d
   }
 
   private def rename(b: Block): Unit = {
+    val symbolsOverwritten: mutable.Set[IRSymbol] = mutable.Set.empty
+
+    // We don't need to keep track of more than one rewritten variables
+    def newName(symbol: IRSymbol): IRSymbol = {
+      val newSym = IRSymbol(Temp(), symbol.ty)
+      if !symbolsOverwritten.add(symbol) then
+        symbol.stack.pop()
+      symbol.stack.push(newSym)
+      newSym
+    }
+
+    // Give phi targets a new name
     for i <- b.tacs do
       i match
-        case phi: Phi => i.definition = newName(i.definition.get).some
+        case _: Phi => i.definition = newName(i.definition.get).some
         case _ =>
 
-    for i <- b.tacs.filterNot(_.isInstanceOf[Phi]) do
-      i.sources.mapInPlace { src =>
-        if globals.contains(src) && src.stack.nonEmpty then
-          src.stack.top
-        else
-          src
-      }
-      if i.definition.isDefined && globals.contains(i.definition.get) then
-        i.definition = newName(i.definition.get).some
+    // Rewrite sources and make new name for targets
+    b.tacs.foreach {
+      case _: Phi =>
+      case i =>
+        i.sources.mapInPlace { src =>
+          if globals.contains(src) && src.stack.nonEmpty then
+            src.stack.top
+          else
+            src
+        }
+        if i.definition.isDefined && globals.contains(i.definition.get) then
+          i.definition = newName(i.definition.get).some
+    }
 
-    for s <- (graph get b).diSuccessors do
-      for i <- s.tacs do
-        i match
-          case phi: Phi =>
-            var changed = false
-            for srcIdx <- phi.sources.indices do
-              val src = phi.sources(srcIdx)
-              if !changed && globals.contains(src) && src.stack.nonEmpty then
-                phi.sources.update(srcIdx, src.stack.top)
-                changed = true
-          case _ =>
+    (graph get b).diSuccessors.flatMap(_.tacs).foreach {
+      case phi: Phi =>
+        var changed = false
+        for srcIdx <- phi.sources.indices do
+          val src = phi.sources(srcIdx)
+          if !changed && globals.contains(src) && src.stack.nonEmpty then
+            phi.sources.update(srcIdx, src.stack.top)
+            changed = true
+      case _ =>
+    }
 
     for s <- (dominatorTree get b).diSuccessors do
       rename(s)
 
-    for i <- b.tacs do
-      i.definition.foreach(d => if d.stack.nonEmpty then d.stack.pop())
-  }
-
-  private def newName(symbol: IRSymbol): IRSymbol = {
-    val newSym = IRSymbol(Temp(), symbol.ty)
-    symbol.stack.push(newSym)
-    newSym
+    symbolsOverwritten.foreach(_.stack.pop())
   }
 
   //  private def rename(): Unit = {
