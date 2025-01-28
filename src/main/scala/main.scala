@@ -3,7 +3,7 @@ import dag.FunctionDag
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
-import dag.toDot
+import dag.asDot
 
 
 val hello: Parsley[Unit] = ('h' ~> ("ello" | "i") ~> " world!").void
@@ -25,7 +25,7 @@ def hi(): Unit = {
       case d: ConcreteFnDecl =>
         val res = FunctionDag(seman, d)
         val ssa = res.makeSsa
-        println(ssa.flowGraph.toDot)
+        println(ssa.flowGraph.asDot)
         println(res.errors)
         println(res.symbolTable)
         res.symbolTable.values.foreach(s =>

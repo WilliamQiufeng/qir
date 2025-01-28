@@ -2,9 +2,9 @@ package dag
 
 import scalax.collection.edges.DiEdge
 import scalax.collection.generic.{AbstractDiEdge, Edge}
-import scalax.collection.immutable as img
+import scalax.collection.{AnyGraph, GraphLike, immutable as img}
 import scalax.collection.io.dot.{DotAttr, DotAttrStmt, DotEdgeStmt, DotGraph, DotRootGraph, Elem, Id, NodeId}
-import scalax.collection.mutable.Graph
+import scalax.collection.immutable.Graph
 import tac.{Label, Tac}
 import scalax.collection.io.dot.*
 import implicits.*
@@ -47,7 +47,7 @@ class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
   }
 }
 
-extension [N, E <: Edge[N]](graph: Graph[N, E]) {
+extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](graph: GraphLike[N, E, CC]) {
   def traverseDfs(start: graph.NodeT, f: graph.NodeT => Unit): Unit = {
     val dfsStack = mutable.Stack(graph get start)
     val visited: mutable.Set[graph.NodeT] = mutable.Set.empty
@@ -74,7 +74,7 @@ private val root = DotRootGraph(
   attrStmts = List(DotAttrStmt(Elem.node, List(DotAttr("shape", "box")))),
   attrList = List(DotAttr("rank_dir", "TB"))
 )
-extension (g: Graph[Block, BlockEdge]) {
+extension [CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[Block, BlockEdge, CC]) {
   def makeDomTree(): Graph[Block, BlockEdge] =
     Graph.from(g.nodes.map(_.self), g.nodes.flatMap(b => b.idom.map(BlockEdge(_, b))))
 
@@ -126,7 +126,6 @@ extension (g: Graph[Block, BlockEdge]) {
 
   private def edgeTransformer(innerEdge: img.Graph[Block, BlockEdge]#EdgeT): Option[(DotGraph, DotEdgeStmt)] = {
     val edge = innerEdge.outer
-    //    val label = edge.label
     val label = ""
     Some(
       root,
@@ -139,7 +138,7 @@ extension (g: Graph[Block, BlockEdge]) {
     )
   }
 
-  def toDot: String = {
+  def asDot: String = {
     val immutableGraph: img.Graph[Block, BlockEdge] = img.Graph.from(g.nodes.outerIterable, g.edges.outerIterable)
     immutableGraph.toDot(root, edgeTransformer)
   }

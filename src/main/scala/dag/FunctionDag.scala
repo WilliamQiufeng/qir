@@ -1,8 +1,8 @@
 package dag
 
 import ast.{Atom, ConcreteFnDecl, LabelValue, LabelledBlock, Local, ValueType}
-import scalax.collection.mutable.Graph
-import scalax.collection.immutable as img
+import scalax.collection.immutable
+import scalax.collection.immutable.Graph
 import semantic.{ConstIRSymbol, FunctionSymbolTable, GlobalSymbolTable, IRSymbol, IntType, SSASymbol, SemanticAnalysis, Temp, Type}
 import tac.{BinaryArith, BinaryArithOp, Branch, Call, Goto, Jump, Label, Move, Phi, Ret, Tac}
 import scalax.collection.io.dot.*
@@ -41,32 +41,37 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
     labelMap.addOne(label, makeBlock(label, labelledBlock))
   }
 
+  private val edges: Iterable[BlockEdge] = labelMap.values.flatMap { block =>
+      block.tacs.lastOption match
+        case Some(j: Jump) => j.targets.map(BlockEdge(block, _))
+        case _ => Iterable.empty
+    }.concat(functionDecl.block.labelledBlocks.headOption map (b => BlockEdge(startBlock, lookupBlock(b.name))))
+
   // Construct graph
-  val graph: Graph[Block, BlockEdge] = Graph.from(Iterable(startBlock, endBlock).map(lookupBlock).concat(labelMap.values), Iterable.empty)
+  val graph: Graph[Block, BlockEdge] = Graph.from(Iterable(startBlock, endBlock).map(lookupBlock).concat(labelMap.values), edges)
 
-  // Add edges
-  for (block <- labelMap.values) yield {
-    block.tacs.lastOption match
-      case Some(j: Jump) => j.targets.foreach(t => graph.addOne(BlockEdge(block, t)))
-      case _ =>
+  private val globals: Set[IRSymbol] = {
+    var res: Set[IRSymbol] = Set.empty
+    for b <- graph.nodes do
+      val varKill: mutable.Set[IRSymbol] = mutable.Set.empty
+      for i <- b.tacs do
+        res = res | i.sources.filterNot(varKill.contains).toSet
+    res
   }
-
-  // Add edge start block -> first block
-  functionDecl.block.labelledBlocks.headOption match {
-    case Some(b: LabelledBlock) => graph.addOne(BlockEdge(startBlock, lookupBlock(b.name)))
-    case _ =>
+  private val globalBlocks: Map[IRSymbol, Set[Block]] = {
+    val res = mutable.HashMap.empty[IRSymbol, Set[Block]]
+    for b <- graph.nodes do
+      val varKill: mutable.Set[IRSymbol] = mutable.Set.empty
+      for i <- b.tacs do
+        i.definition.foreach(dst =>
+          varKill.addOne(dst)
+          res.updateWith(dst) {
+            case None => Some(Set.empty)
+            case Some(s) => Some(s + b)
+          }
+        )
+    res.toMap
   }
-
-  private val globals: mutable.Set[IRSymbol] = mutable.Set.empty
-  private val globalBlocks: mutable.HashMap[IRSymbol, mutable.Set[Block]] = mutable.HashMap.empty
-  for b <- graph.nodes do
-    val varKill: mutable.Set[IRSymbol] = mutable.Set.empty
-    for i <- b.tacs do
-      globals.addAll(i.sources.filterNot(varKill.contains))
-      i.definition.foreach(dst =>
-        varKill.addOne(dst)
-        globalBlocks.getOrElseUpdate(dst, mutable.Set.empty).addOne(b)
-      )
 
   private implicit def valueTypeToType(valueType: ValueType): Type =
     semanticAnalysis.translateValueType(valueType).toOption.get
@@ -145,7 +150,7 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
   private def insertPhi(): Unit = {
     for x <- globals do
       val insertedBlocks: mutable.Set[Block] = mutable.Set.empty
-      val workList: mutable.Set[Block] = globalBlocks.getOrElse(x, mutable.Set.empty)
+      val workList: mutable.Set[Block] = mutable.Set.from(globalBlocks.getOrElse(x, Set.empty))
       while workList.nonEmpty do
         val b = workList.head
         workList -= b
@@ -204,7 +209,7 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
     graph.calculateDominators(startBlock)
 
     graph.calculateDominanceFrontiers()
-    val dominatorTree: Graph[Block, BlockEdge] = graph.makeDomTree()
+    val dominatorTree = graph.makeDomTree()
 
     insertPhi()
 

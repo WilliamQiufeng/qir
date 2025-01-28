@@ -2,7 +2,7 @@ package ssa
 
 import ast.{ConcreteFnDecl, LabelValue}
 import dag.{Block, BlockEdge}
-import scalax.collection.mutable.Graph
+import scalax.collection.immutable.Graph
 import semantic.{FunctionSymbolTable, IRSymbol, SemanticAnalysis, Temp}
 import tac.Label
 
