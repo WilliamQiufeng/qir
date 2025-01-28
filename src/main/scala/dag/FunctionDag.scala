@@ -8,6 +8,7 @@ import tac.{BinaryArith, BinaryArithOp, Branch, Call, Goto, Jump, Label, Move, P
 import scalax.collection.io.dot.*
 import implicits.*
 import cats.implicits.*
+import ssa.FunctionSsa
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -56,12 +57,6 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
     case _ =>
   }
 
-  graph.calculateDominators(startBlock)
-
-  graph.calculateDominanceFrontiers()
-
-  val dominatorTree: Graph[Block, BlockEdge] = graph.makeDomTree()
-
   private val globals: mutable.Set[IRSymbol] = mutable.Set.empty
   private val globalBlocks: mutable.HashMap[IRSymbol, mutable.Set[Block]] = mutable.HashMap.empty
   for b <- graph.nodes do
@@ -72,13 +67,6 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
         varKill.addOne(dst)
         globalBlocks.getOrElseUpdate(dst, mutable.Set.empty).addOne(b)
       )
-
-  insertPhi()
-
-  rename(startBlock)
-
-  graph.nodes.foreach(_.fillDefUse())
-
 
   private implicit def valueTypeToType(valueType: ValueType): Type =
     semanticAnalysis.translateValueType(valueType).toOption.get
@@ -169,7 +157,7 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
             workList += d
   }
 
-  private def rename(b: Block): Unit = {
+  private def rename(dominatorTree: Graph[Block, BlockEdge], b: Block): Unit = {
     val symbolsOverwritten: mutable.Set[IRSymbol] = mutable.Set.empty
 
     // We don't need to keep track of more than one rewritten variables
@@ -207,8 +195,22 @@ class FunctionDag(private val semanticAnalysis: SemanticAnalysis, private val fu
     }
 
     for s <- (dominatorTree get b).diSuccessors do
-      rename(s)
+      rename(dominatorTree, s)
 
     symbolsOverwritten.foreach(_.stack.pop())
+  }
+
+  def makeSsa: FunctionSsa = {
+    graph.calculateDominators(startBlock)
+
+    graph.calculateDominanceFrontiers()
+    val dominatorTree: Graph[Block, BlockEdge] = graph.makeDomTree()
+
+    insertPhi()
+
+    rename(dominatorTree, startBlock)
+
+    graph.nodes.foreach(_.fillDefUse())
+    FunctionSsa(semanticAnalysis, functionDecl, returnSink, labelMap, graph, startBlock, endBlock, symbolTable, dominatorTree)
   }
 }

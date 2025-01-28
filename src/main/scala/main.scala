@@ -24,7 +24,8 @@ def hi(): Unit = {
     x match
       case d: ConcreteFnDecl =>
         val res = FunctionDag(seman, d)
-        println(res.graph.toDot)
+        val ssa = res.makeSsa
+        println(ssa.flowGraph.toDot)
         println(res.errors)
         println(res.symbolTable)
         res.symbolTable.values.foreach(s =>
