@@ -62,8 +62,8 @@ object SemanticAnalysis {
     yield argDec.ty
   }
 
-  def getOrAddConst[F[_] : Monad](value: Const, name: Option[String] = None)
-                                 (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[ConstIRSymbol] =
+  private def getOrAddConst[F[_] : Monad](value: Const, name: Option[String] = None)
+                                         (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[ConstIRSymbol] =
     for
       maybeSymbol <- S.inspect(_.constMap.get(value))
       constTy <- getConstType(value)
@@ -150,8 +150,8 @@ object SemanticAnalysis {
         fillFnDecl(name.name, args, retTy, visited)
   }
 
-  def fillDeclarations[F[_] : Monad](program: Program)
-                                    (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Unit] =
+  private def fillDeclarations[F[_] : Monad](program: Program)
+                                            (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Unit] =
     program.lines.traverse_(fillUnitDeclaration("*PROGRAM*", _, Set.empty))
 
   def apply(program: Program): PartialEither[SemanticAnalysisInfo] = {

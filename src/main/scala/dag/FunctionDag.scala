@@ -1,20 +1,14 @@
 package dag
 
-import ast.{Atom, ConcreteFnDecl, LabelValue, LabelledBlock, Local, ValueType}
-import scalax.collection.mutable.Graph
-import scalax.collection.immutable.Graph as ImmutableGraph
-import semantic.{ConstIRSymbol, FunctionSymbolTable, GlobalSymbolTable, IRSymbol, IntType, NormalIRSymbol, SSASymbol, SemanticAnalysis, SemanticAnalysisInfo, SemanticError, Temp, Type, TypeMismatch}
-import tac.{BinaryArith, BinaryArithOp, Block, BlockEdge, Branch, Call, Goto, Jump, Label, Move, Phi, Ret, Tac}
-import scalax.collection.io.dot.*
-import implicits.*
 import cats.implicits.*
-import ssa.FunctionSsaPass
+import scalax.collection.immutable.Graph
+import semantic.*
+import tac.*
 
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
 
-case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, private val functionDecl: ConcreteFnDecl) {
+case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, private val functionDecl: ast.ConcreteFnDecl) {
   private val returnSink: IRSymbol = NormalIRSymbol(Temp(), functionDecl.retTy, "%ret".some)
   private val startBlock: Label = Label()
   private val endBlock: Label = Label()
@@ -24,7 +18,7 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
     functionDecl.block.declarations.foldLeft(table)((table, declaration) =>
       table.insert(declaration.local.name, NormalIRSymbol(Temp(), declaration.ty, declaration.local.name.some)))
   }
-  private val labelSymbolMap: Map[LabelValue, Label] = Map.from(functionDecl.block.labelledBlocks.map(_.name -> Label()))
+  private val labelSymbolMap: Map[ast.LabelValue, Label] = Map.from(functionDecl.block.labelledBlocks.map(_.name -> Label()))
   private val labelMap: Map[Label, Block] = Map.from(
       functionDecl.block.labelledBlocks.map(labelledBlock =>
         val label = labelSymbolMap(labelledBlock.name)
@@ -43,15 +37,15 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   // Construct graph
   val graph: Graph[Block, BlockEdge] = Graph.from(Iterable(startBlock, endBlock).map(lookupBlock).concat(labelMap.values), edges)
 
-  private implicit def valueTypeToType(valueType: ValueType): Type =
+  private implicit def valueTypeToType(valueType: ast.ValueType): Type =
     semanticAnalysis.lookupValueType(valueType).get
 
-  private implicit def localToTemp(local: Local): IRSymbol = local.name
+  private implicit def localToTemp(local: ast.Local): IRSymbol = local.name
 
-  private implicit def atomToTemp(atom: Atom): IRSymbol = {
+  private implicit def atomToTemp(atom: ast.Atom): IRSymbol = {
     atom match
       case const: ast.Const => ConstIRSymbol(const, Temp(), semanticAnalysis.lookupConstType(const).get)
-      case local: Local => local
+      case local: ast.Local => local
   }
 
   private implicit def stringToTemp(name: String): IRSymbol = {
@@ -66,7 +60,7 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
 
   private implicit def lookupBlock(label: Label): Block = labelMap(label)
 
-  private implicit def lookupLabelValue(labelValue: LabelValue): Label = labelSymbolMap(labelValue)
+  private implicit def lookupLabelValue(labelValue: ast.LabelValue): Label = labelSymbolMap(labelValue)
 
   private def checkType(desired: Type, checkTypes: Type*) = {
     checkTypes.find(_ != desired) match {
@@ -76,9 +70,6 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   }
 
   private def makeBlock(label: Label, block: ast.LabelledBlock): Block = {
-
-    val arr: ArrayBuffer[Tac] = ArrayBuffer.empty
-
     val jumpInstructions: List[Tac] = block.jump match
       case ast.Ret(value) =>
         checkType(returnSink.ty, value.ty)
@@ -102,7 +93,7 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
             case ast.DivInt(left, right) =>
               checkType(IntType, dst.ty, left.ty, right.ty)
               BinaryArith(BinaryArithOp.DivI, dst, left, right) :: list
-          case value: Local => Move(dst, value) :: list
+          case value: ast.Local => Move(dst, value) :: list
           case atom: ast.Atom => Move(dst, atom) :: list
           case ast.Call(fn, args) =>
             Call(dst, fn.name, args.map(atomToTemp)) :: list

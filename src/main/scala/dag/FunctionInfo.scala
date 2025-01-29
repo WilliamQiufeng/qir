@@ -1,11 +1,9 @@
 package dag
 
 import ast.{ConcreteFnDecl, LabelValue}
-import scalax.collection.mutable.Graph
-import semantic.{FunctionSymbolTable, IRSymbol, SemanticAnalysis, SemanticAnalysisInfo}
+import scalax.collection.immutable.Graph
+import semantic.{FunctionSymbolTable, IRSymbol, SemanticAnalysisInfo}
 import tac.{Block, BlockEdge, Label}
-
-import scala.collection.mutable
 
 
 case class FunctionInfo(semanticAnalysis: SemanticAnalysisInfo,
