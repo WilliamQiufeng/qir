@@ -3,7 +3,7 @@ package dag
 import ast.{Atom, ConcreteFnDecl, LabelValue, LabelledBlock, Local, ValueType}
 import scalax.collection.mutable.Graph
 import scalax.collection.immutable.Graph as ImmutableGraph
-import semantic.{ConstIRSymbol, FunctionSymbolTable, GlobalSymbolTable, IRSymbol, IntType, SSASymbol, SemanticAnalysis, Temp, Type}
+import semantic.{ConstIRSymbol, FunctionSymbolTable, GlobalSymbolTable, IRSymbol, IntType, SSASymbol, SemanticAnalysis, SemanticError, Temp, Type, TypeMismatch}
 import tac.{BinaryArith, BinaryArithOp, Block, BlockEdge, Branch, Call, Goto, Jump, Label, Move, Phi, Ret, Tac}
 import scalax.collection.io.dot.*
 import implicits.*

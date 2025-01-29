@@ -1,72 +1,133 @@
 package semantic
 
 import cats.syntax.all.*
+import cats.syntax.alternative
 import ast.*
+import cats.{Alternative, Applicative, Monad}
+import cats.data.StateT.pure
+import cats.data.{EitherT, State, StateT}
+import cats.mtl.{Handle, Raise, Stateful}
 
 import scala.collection.mutable
+import monocle.syntax.all._
+import cats.mtl.Handle.handleStateT
+import monocle.Focus
+import monocle.macros.syntax.AppliedFocusSyntax
 
-class SemanticAnalysis(val program: Program) {
-  val globalSymbolTable: GlobalSymbolTable = GlobalSymbolTable()
-  val programUnitMap: Map[String, ProgramUnit] = Map.from(for decl <- program.lines yield decl match {
-    case ConcreteFnDecl(name, _, _, _) => (name.name, decl)
-    case ConstDecl(name, _) => (name, decl)
-    case StructDecl(name, _) => (name, decl)
-    case ExternFnDecl(name, _, _) => (name.name, decl)
-  })
-  private val constMap: mutable.HashMap[Const, ConstIRSymbol] = mutable.HashMap.empty
+private type PartialEither[T] = Either[SemanticError, T]
+private type PartialState[T] = State[SemanticAnalysisInfo, T]
+private type SemanticAnalysisState[A] = StateT[PartialEither, SemanticAnalysisInfo, A]
 
-  def translateValueType(ty: ValueType): Either[String, Type] = translateValueType(ty, Set.empty)
+case class SemanticAnalysisInfo(globalSymbolTable: GlobalSymbolTable = GlobalSymbolTable(),
+                                constMap: Map[Const, ConstIRSymbol] = Map.empty,
+                                programUnitMap: Map[String, ProgramUnit])
 
-  private def fillDeclaration(name: String, visited: Set[String]): Either[String, Type] = {
+object SemanticAnalysis {
+
+  private def fillDeclaration[F[_] : Monad](name: String, visited: Set[String])
+                                           (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Type] = {
     if (visited.contains(name))
-      return Left(name)
+      return H.raise(RecursiveReference(name))
     for {
-      n <- programUnitMap.get(name).toRight(s"Undeclared function/structure: $name")
-      argDec <- fillDeclaration(n, visited.incl(name))
+      programUnitMap <- S.inspect(_.programUnitMap)
+      n <- H.fromOption(programUnitMap.get(name))(UndeclaredSymbol(name))
+      argDec <- fillUnitDeclaration(name, n, visited.incl(name))
     }
-    yield
-      argDec.debugName = name.some
-      argDec.ty
+    yield argDec.ty
   }
 
-  def getOrAddConst(value: Const): ConstIRSymbol = constMap.getOrElseUpdate(value, ConstIRSymbol(value, Temp()))
+  def getOrAddConst[F[_] : Monad](value: Const, name: Option[String] = None)
+                                 (implicit S: Stateful[F, SemanticAnalysisInfo]): F[ConstIRSymbol] =
+    for
+      maybeSymbol <- S.inspect(_.constMap.get(value))
+      resultSymbol <- maybeSymbol match {
+        case None =>
+          val newConst = ConstIRSymbol(value, Temp(), name)
+          S.modify(info => info.copy(constMap = info.constMap + (value -> newConst))) *> S.monad.pure(newConst)
+        case Some(v) => S.monad.pure(v)
+      }
+    yield resultSymbol
 
-  private def insertConst(name: String, value: Const) = {
-    val constSymbol = ConstIRSymbol(value, Temp())
-    constSymbol.debugName = name.some
-    constMap.getOrElseUpdate(value, constSymbol)
-    globalSymbolTable.insert(name, constSymbol).asRight
+
+  private val globalSymbolTable = Focus[SemanticAnalysisInfo](_.globalSymbolTable)
+  private val constMap = Focus[SemanticAnalysisInfo](_.constMap)
+
+  private def getOrAddGlobal[F[_] : Monad](name: String, symbol: => IRSymbol)
+                                          (implicit S: Stateful[F, SemanticAnalysisInfo]): F[IRSymbol] =
+    for
+      maybeSymbol <- S.inspect(_.globalSymbolTable.lookup(name))
+      resultSymbol <- maybeSymbol match {
+        case None =>
+          S.modify(info => info.copy(globalSymbolTable = info.globalSymbolTable.insert(name, symbol))) *> S.monad.pure(symbol)
+        case Some(v) => S.monad.pure(v)
+      }
+    yield resultSymbol
+
+  private def insertConst[F[_] : Monad](name: String, value: Const)
+                                       (implicit S: Stateful[F, SemanticAnalysisInfo]): F[IRSymbol] = {
+    for
+      constSymbol <- getOrAddConst(value, name.some)
+      _ <- getOrAddGlobal(name, constSymbol)
+    yield constSymbol
   }
 
-  private def translateValueType(ty: ValueType, visited: Set[String]): Either[String, Type] = ty match
-    case TypePointer(element) => PointerType(() => translateValueType(element, visited).toOption.get).asRight
-    case TypeStruct(name) => fillDeclaration(name, visited)
-    case TypeUnit => UnitType.asRight
-    case TypeInt => IntType.asRight
-    case TypeChar => CharType.asRight
-    case TypeFloat => FloatType.asRight
+  private def lookup[F[_] : Monad](name: String)
+                                  (implicit E: Raise[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[IRSymbol] =
+    S.inspect(_.globalSymbolTable.lookup(name)).flatMap(E.fromOption(_)(UndeclaredSymbol(name)))
 
-  private def fillFnDecl(name: String, args: List[Param], retTy: ValueType, visited: Set[String]) =
-    globalSymbolTable.lookup(name).toRight(s"Function declaration for $name is not found") <+> (
+
+  private def translateValueType[F[_] : Monad](ty: ValueType, visited: Set[String])
+                                              (implicit S: Stateful[F, SemanticAnalysisInfo], H: Handle[F, SemanticError]): F[Type] =
+    ty match
+      case TypePointer(element) =>
+        for
+          x <- S.get
+        yield PointerType(() => translateValueType[SemanticAnalysisState](element, visited).runA(x).toOption.get)
+      case TypeStruct(name) => fillDeclaration(name, visited)
+      case TypeUnit => UnitType.pure
+      case TypeInt => IntType.pure
+      case TypeChar => CharType.pure
+      case TypeFloat => FloatType.pure
+
+
+  private def fillFnDecl[F[_] : Monad](name: String, args: List[Param], retTy: ValueType, visited: Set[String])
+                                      (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[IRSymbol] =
+    H.handleWith(lookup(name))(_ =>
       for {
         argTypes <- args.traverse(a => translateValueType(a.ty, visited))
         retType <- translateValueType(retTy, visited)
-      } yield globalSymbolTable.insert(name, IRSymbol(Temp(), FunctionType(argTypes, retType), name.some)))
+        symbol <- getOrAddGlobal(name, NormalIRSymbol(Temp(), FunctionType(argTypes, retType), name.some))
+      } yield symbol)
 
-  private def fillDeclaration(programUnit: ProgramUnit, visited: Set[String]): Either[String, IRSymbol] = {
+  private def fillUnitDeclaration[F[_] : Monad](name: String, programUnit: ProgramUnit, visited: Set[String])
+                                               (implicit S: Stateful[F, SemanticAnalysisInfo], H: Handle[F, SemanticError]): F[IRSymbol] = {
     programUnit match
       case ConcreteFnDecl(name, args, retTy, _) => fillFnDecl(name.name, args, retTy, visited)
       case ConstDecl(name, value) =>
-        globalSymbolTable.lookup(name).toRight(s"Declaration of $name is not found") <+> insertConst(name, value)
-      case StructDecl(name, members) => globalSymbolTable.lookup(name).toRight(s"Declaration of $name is not found") <+> (
-        for {
-          memberTypes <- members.traverse(a => translateValueType(a.ty, visited))
-        } yield {
-          val structSymbolTable = StructSymbolTable(members.map(_.name), memberTypes)
-          globalSymbolTable.insert(name, IRSymbol(Temp(), StructType(memberTypes, structSymbolTable), name.some))
-        })
-      case ExternFnDecl(name, args, retTy) => fillFnDecl(name.name, args, retTy, visited)
+        H.handleWith(lookup(name))(_ => insertConst(name, value))
+      case StructDecl(name, members) =>
+        H.handleWith(lookup(name))(_ =>
+          for {
+            memberTypes <- members.traverse(translateValueType(_, visited))
+            structSymbolTable = StructSymbolTable.from(memberTypes)
+            symbol <- getOrAddGlobal(name, NormalIRSymbol(Temp(), StructType(memberTypes, structSymbolTable), name.some))
+          } yield symbol)
+      case ExternFnDecl(name, args, retTy) =>
+        fillFnDecl(name.name, args, retTy, visited)
   }
 
-  def fillDeclarations(): Either[String, Unit] = for _ <- program.lines.traverse(fillDeclaration(_, Set.empty)) yield ()
+  def fillDeclarations[F[_] : Monad](program: Program)
+                                    (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Unit] =
+    program.lines.traverse_(fillUnitDeclaration("*PROGRAM*", _, Set.empty))
+
+  def apply(program: Program): PartialEither[SemanticAnalysisInfo] = {
+    val programUnitMap: Map[String, ProgramUnit] = Map.from(for decl <- program.lines yield decl match {
+      case ConcreteFnDecl(name, _, _, _) => (name.name, decl)
+      case ConstDecl(name, _) => (name, decl)
+      case StructDecl(name, _) => (name, decl)
+      case ExternFnDecl(name, _, _) => (name.name, decl)
+    })
+    val res = fillDeclarations[SemanticAnalysisState](program)
+    res.runS(SemanticAnalysisInfo(programUnitMap = programUnitMap))
+  }
 }

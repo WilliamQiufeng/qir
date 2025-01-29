@@ -25,10 +25,10 @@ case object FloatType extends Type("Float") {
 
 case class PointerType(private val memberTypeFinder: () => Type) extends Type("Pointer") {
   override val size: Int = 8
-  lazy val memberType = memberTypeFinder()
+  lazy val memberType: Type = memberTypeFinder()
 }
 
-case class StructType(memberTypes: List[Type], symbolTable: StructSymbolTable) extends Type(symbolTable.types.mkString("{", ", ", "}")) {
+case class StructType(memberTypes: List[Type], symbolTable: StructSymbolTable) extends Type(symbolTable.values.mkString("{", ", ", "}")) {
   override val size: Int = memberTypes.map(_.size).sum
 }
 

@@ -1,9 +1,9 @@
 const $s = "abc"
 
-struct #Point($a: Int, $b: Int)
+struct #Point(Int, Int)
 
-struct #A($a: *#B)
-struct #B($b: *#A)
+struct #A(*#B)
+struct #B(*#A)
 
 extern fn @print($str: *Char): Unit
 extern fn @malloc($size: Int): *Char

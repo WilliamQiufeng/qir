@@ -7,7 +7,6 @@ import parsley.combinator.{option, sepEndBy}
 import parsley.expr.chain
 
 package object parser {
-  lazy val member: Parsley[Member] = Member(VAR_ID, ":" ~> valueType)
   lazy val block: Parsley[Block] = Block(many(declaration), many(labelledBlock))
   lazy val program: Parsley[Program] = fully(Program(some(programUnit)))
   private lazy val valueType: Parsley[ValueType] =
@@ -35,7 +34,7 @@ package object parser {
     ConcreteFnDecl("fn" ~> labelValue, parenList(param), ":" ~> valueType, block)
       | ExternFnDecl("extern" ~> "fn" ~> labelValue, parenList(param), ":" ~> valueType)
       | ConstDecl("const" ~> VAR_ID, "=" ~> const)
-      | StructDecl("struct" ~> STRUCT_ID, parenList(member))
+      | StructDecl("struct" ~> STRUCT_ID, parenList(valueType))
   private val const: Parsley[Const] = atomic(ConstFloat(FLOAT)) | ConstInteger(INTEGER) | ConstString(STRING) | ConstChar(CHAR)
   private val local: Parsley[Local] = Local(VAR_ID)
   private val labelValue: Parsley[LabelValue] = LabelValue(LABEL_ID)

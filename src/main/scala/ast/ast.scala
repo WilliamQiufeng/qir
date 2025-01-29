@@ -1,7 +1,8 @@
+import common.IR
 import parsley.generic.*
 
 package object ast {
-  sealed trait ProgramUnit
+  sealed trait ProgramUnit extends IR
 
   sealed trait FnDecl extends ProgramUnit:
     val name: LabelValue
@@ -32,11 +33,9 @@ package object ast {
 
   case class ExternFnDecl(name: LabelValue, args: List[Param], retTy: ValueType) extends FnDecl
 
-  case class StructDecl(name: String, members: List[Member]) extends ProgramUnit
+  case class StructDecl(name: String, members: List[ValueType]) extends ProgramUnit
 
   case class Param(name: String, ty: ValueType)
-
-  case class Member(name: String, ty: ValueType)
 
   case class Block(declarations: List[Declaration], labelledBlocks: List[LabelledBlock])
 
@@ -94,11 +93,9 @@ package object ast {
 
   object ExternFnDecl extends ParserBridge3[LabelValue, List[Param], ValueType, ProgramUnit]
 
-  object StructDecl extends ParserBridge2[String, List[Member], ProgramUnit]
+  object StructDecl extends ParserBridge2[String, List[ValueType], ProgramUnit]
 
   object Param extends ParserBridge2[String, ValueType, Param]
-
-  object Member extends ParserBridge2[String, ValueType, Member]
 
   object Block extends ParserBridge2[List[Declaration], List[LabelledBlock], Block]
 
