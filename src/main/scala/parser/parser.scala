@@ -35,7 +35,12 @@ package object parser {
       | ExternFnDecl("extern" ~> "fn" ~> labelValue, parenList(param), ":" ~> valueType)
       | ConstDecl("const" ~> VAR_ID, "=" ~> const)
       | StructDecl("struct" ~> STRUCT_ID, parenList(valueType))
-  private val const: Parsley[Const] = atomic(ConstFloat(FLOAT)) | ConstInteger(INTEGER) | ConstString(STRING) | ConstChar(CHAR)
+  private val const: Parsley[Const] =
+    atomic(ConstFloat(FLOAT))
+      | ConstInteger(INTEGER)
+      | ConstString(STRING)
+      | ConstChar(CHAR)
+      | ConstUndefined("undefined" ~> "(" ~> valueType <~ ")")
   private val local: Parsley[Local] = Local(VAR_ID)
   private val labelValue: Parsley[LabelValue] = LabelValue(LABEL_ID)
   private val atom: Parsley[Atom] = local | const

@@ -4,7 +4,6 @@ import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
 import tac.asDot
-import ssa.FunctionSsaConstructor
 
 
 val hello: Parsley[Unit] = ('h' ~> ("ello" | "i") ~> " world!").void
@@ -16,25 +15,25 @@ def hi(): Unit = {
   println(l)
   val ast = parser.program.parse(l)
   println(ast)
-  val seman = SemanticAnalysis(ast.get)
-  println(seman.fillDeclarations())
-  println(seman.globalSymbolTable)
-  println(seman.programUnitMap)
-  for (x <- seman.programUnitMap.values) {
-    println(x)
-    x match
-      case d: ConcreteFnDecl =>
-        val res = FunctionDag(seman, d)
-        val functionInfo = res.makeInfo
-        val ssa = FunctionSsaConstructor(functionInfo).perform
-        println(ssa.flowGraph.asDot)
-        println(res.errors)
-        println(res.symbolTable)
-        res.symbolTable.values.foreach(s =>
-          println(s"$s: uses:${s.uses}")
-        )
-      case _ =>
-  }
+  SemanticAnalysis(ast.get) match
+    case Left(err) => println(err)
+    case Right(info) => println(info)
+      for (x <- info.programUnitMap.values) {
+        println(x)
+        x match
+          case d: ConcreteFnDecl =>
+            val res = FunctionDag(info, d)
+            val functionInfo = res.makeInfo
+            println(res.errors)
+            println(res.symbolTable)
+            println(res.graph.asDot)
+//            val ssa = FunctionSsaConstructor(functionInfo).perform
+//            println(ssa.flowGraph.asDot)
+//            res.symbolTable.values.foreach(s =>
+//              println(s"$s: uses:${s.uses}")
+//            )
+          case _ =>
+      }
 }
 
 def time[R](block: => R): R = {

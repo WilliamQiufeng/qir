@@ -1,20 +1,20 @@
 package dag
 
 import ast.{Atom, LabelValue, Local, ValueType}
-import semantic.{IRSymbol, Type}
+import semantic.{ConstIRSymbol, IRSymbol, Temp, Type}
 import tac.{Block, Label}
 
 import scala.language.implicitConversions
 
 abstract class FunctionPass(private val functionInfo: FunctionInfo) {
   implicit def valueTypeToType(valueType: ValueType): Type =
-    functionInfo.semanticAnalysis.translateValueType(valueType).toOption.get
+    functionInfo.semanticAnalysis.lookupValueType(valueType).get
 
   implicit def localToTemp(local: Local): IRSymbol = local.name
 
   implicit def atomToTemp(atom: Atom): IRSymbol = {
     atom match
-      case const: ast.Const => functionInfo.semanticAnalysis.getOrAddConst(const)
+      case const: ast.Const => ConstIRSymbol(const, Temp(), functionInfo.semanticAnalysis.lookupConstType(const).get)
       case local: Local => local
   }
 

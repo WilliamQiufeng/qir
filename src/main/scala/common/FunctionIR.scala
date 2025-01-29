@@ -1,0 +1,19 @@
+package common
+
+import cats.implicits.catsSyntaxFlatMapOps
+
+trait FunctionIR
+
+trait CompilerContext
+
+type FunctionPassResult[A] = Either[IRError, A]
+
+trait FunctionPass[-In <: FunctionIR, +Out <: FunctionIR] {
+  def apply(in: In)(implicit ctx: CompilerContext): FunctionPassResult[Out]
+}
+
+implicit class FunctionPassOps[In <: FunctionIR, Mid <: FunctionIR](pass: FunctionPass[In, Mid]) {
+  def andThen[Out <: FunctionIR](next: FunctionPass[Mid, Out]): FunctionPass[In, Out] = new FunctionPass[In, Out] {
+    def apply(in: In)(implicit ctx: CompilerContext): FunctionPassResult[Out] = pass(in) >>= next.apply
+  }
+}

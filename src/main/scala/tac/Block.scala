@@ -20,7 +20,7 @@ case class BlockTac(tac: Tac, block: Block) {
 
 //type BlockEdge = DiEdge[Block]
 
-class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
+class Block(val label: Label, val tacs: List[Tac]) {
 
   override def toString = s"Block $label(df=${dominanceFrontier.map(_.label)}, df+=${dominanceFrontierClosure.map(_.label)}, idom=${idom.map(_.label)}, dom=${dominators.map(_.label)})${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 
@@ -40,10 +40,10 @@ class Block(val label: Label, val tacs: mutable.ArrayBuffer[Tac]) {
 
   def self: Block = this
 
-  def fillDefUse(): Unit = {
-    for tac <- tacs do
-      tac.sources.foreach(s => s.uses = s.uses.incl(BlockTac(tac, this)))
-  }
+//  def fillDefUse(): Unit = {
+//    for tac <- tacs do
+//      tac.sources.foreach(s => s.uses = s.uses.incl(BlockTac(tac, this)))
+//  }
 }
 
 extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](graph: GraphLike[N, E, CC]) {

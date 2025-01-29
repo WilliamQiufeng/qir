@@ -1,8 +1,8 @@
-import common.IR
+import common.FunctionIR
 import parsley.generic.*
 
 package object ast {
-  sealed trait ProgramUnit extends IR
+  sealed trait ProgramUnit extends FunctionIR
 
   sealed trait FnDecl extends ProgramUnit:
     val name: LabelValue
@@ -81,9 +81,11 @@ package object ast {
 
   case class ConstFloat(value: BigDecimal) extends Const(value.toString)
 
-  case class ConstString(value: String) extends Const(value.toString)
+  case class ConstString(value: String) extends Const(value)
 
   case class ConstChar(value: Int) extends Const(value.toString)
+
+  case class ConstUndefined(valueType: ValueType) extends Const(s"$valueType.⊥")
 
   object Program extends ParserBridge1[List[ProgramUnit], Program]
 
@@ -150,4 +152,6 @@ package object ast {
   object ConstString extends ParserBridge1[String, Const]
 
   object ConstChar extends ParserBridge1[Int, Const]
+
+  object ConstUndefined extends ParserBridge1[ValueType, Const]
 }
