@@ -2,7 +2,6 @@ package tac
 
 import semantic.IRSymbol
 import cats.syntax.all.*
-import dag.Block
 
 sealed trait Tac(var sources: Array[IRSymbol], var definition: Option[IRSymbol])
 

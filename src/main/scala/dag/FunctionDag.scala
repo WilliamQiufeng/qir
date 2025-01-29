@@ -4,7 +4,7 @@ import ast.{Atom, ConcreteFnDecl, LabelValue, LabelledBlock, Local, ValueType}
 import scalax.collection.mutable.Graph
 import scalax.collection.immutable.Graph as ImmutableGraph
 import semantic.{ConstIRSymbol, FunctionSymbolTable, GlobalSymbolTable, IRSymbol, IntType, SSASymbol, SemanticAnalysis, Temp, Type}
-import tac.{BinaryArith, BinaryArithOp, Branch, Call, Goto, Jump, Label, Move, Phi, Ret, Tac}
+import tac.{BinaryArith, BinaryArithOp, Block, BlockEdge, Branch, Call, Goto, Jump, Label, Move, Phi, Ret, Tac}
 import scalax.collection.io.dot.*
 import implicits.*
 import cats.implicits.*

@@ -1,7 +1,7 @@
 package semantic
 
 import cats.syntax.all.*
-import dag.BlockTac
+import tac.BlockTac
 
 import scala.collection.mutable
 

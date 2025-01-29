@@ -3,7 +3,7 @@ import dag.FunctionDag
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
-import dag.asDot
+import tac.asDot
 import ssa.FunctionSsaConstructor
 
 

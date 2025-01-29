@@ -2,7 +2,7 @@ package dag
 
 import ast.{Atom, LabelValue, Local, ValueType}
 import semantic.{IRSymbol, Type}
-import tac.Label
+import tac.{Block, Label}
 
 import scala.language.implicitConversions
 

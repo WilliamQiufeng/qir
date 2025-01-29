@@ -1,13 +1,12 @@
-package dag
+package tac
 
 import scalax.collection.edges.DiEdge
 import scalax.collection.generic.{AbstractDiEdge, Edge}
-import scalax.collection.{AnyGraph, GraphLike, immutable as img}
-import scalax.collection.io.dot.{DotAttr, DotAttrStmt, DotEdgeStmt, DotGraph, DotRootGraph, Elem, Id, NodeId}
 import scalax.collection.immutable.Graph
-import tac.{Label, Tac}
+import scalax.collection.io.dot.implicits.*
 import scalax.collection.io.dot.*
-import implicits.*
+import scalax.collection.{AnyGraph, GraphLike, immutable as img}
+import tac.{Label, Tac}
 
 import scala.collection.mutable
 

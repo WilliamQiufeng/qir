@@ -3,8 +3,10 @@ package ssa
 import dag.*
 import scalax.collection.immutable.Graph as ImmutableGraph
 import semantic.{IRSymbol, SSASymbol}
-import tac.Phi
+import tac.{Block, BlockEdge, Phi}
 import cats.implicits.*
+import tac.*
+
 import scala.collection.mutable
 
 class FunctionSsaConstructor(functionInfo: FunctionInfo) extends FunctionPass(functionInfo) {
