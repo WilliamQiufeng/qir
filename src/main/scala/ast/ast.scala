@@ -2,7 +2,7 @@ import common.FunctionIR
 import parsley.generic.*
 
 package object ast {
-  sealed trait ProgramUnit extends FunctionIR
+  sealed trait ProgramUnit
 
   sealed trait FnDecl extends ProgramUnit:
     val name: LabelValue
@@ -29,7 +29,7 @@ package object ast {
 
   case class ConstDecl(name: String, value: Const) extends ProgramUnit
 
-  case class ConcreteFnDecl(name: LabelValue, args: List[Param], retTy: ValueType, block: Block) extends FnDecl
+  case class ConcreteFnDecl(name: LabelValue, args: List[Param], retTy: ValueType, block: Block) extends FnDecl, FunctionIR
 
   case class ExternFnDecl(name: LabelValue, args: List[Param], retTy: ValueType) extends FnDecl
 

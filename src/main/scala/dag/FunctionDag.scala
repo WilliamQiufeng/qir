@@ -1,12 +1,18 @@
 package dag
 
 import cats.implicits.*
+import common.{CompilerContext, FunctionPass, FunctionPassResult}
 import scalax.collection.immutable.Graph
 import semantic.*
 import tac.*
 
 import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
+
+case object FunctionDagGenerationPass extends FunctionPass[ast.ConcreteFnDecl, FunctionInfo] {
+  override def apply(in: ast.ConcreteFnDecl)(implicit ctx: CompilerContext): FunctionPassResult[FunctionInfo] =
+    FunctionDag(ctx.semanticAnalysisInfo, in).makeInfo.pure
+}
 
 case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, private val functionDecl: ast.ConcreteFnDecl) {
   private val returnSink: IRSymbol = NormalIRSymbol(Temp(), functionDecl.retTy, "%ret".some)
@@ -107,6 +113,6 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
     val symbol = symbolTable.lookup(decl.local.name).get
     Move(symbol, ConstIRSymbol(ast.ConstUndefined(decl.ty), Temp(), symbol.ty)))
 
-  def makeInfo: FunctionInfo = FunctionInfo(semanticAnalysis, functionDecl, returnSink, labelMap, labelSymbolMap, graph, startBlock, endBlock, symbolTable)
+  def makeInfo: FunctionInfo = FunctionInfo(functionDecl, returnSink, labelMap, labelSymbolMap, startBlock, endBlock, symbolTable, graph)
 
 }

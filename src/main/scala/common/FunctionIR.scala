@@ -1,10 +1,13 @@
 package common
 
 import cats.implicits.catsSyntaxFlatMapOps
+import semantic.SemanticAnalysisInfo
 
 trait FunctionIR
 
-trait CompilerContext
+trait CompilerContext {
+  val semanticAnalysisInfo: SemanticAnalysisInfo
+}
 
 type FunctionPassResult[A] = Either[IRError, A]
 
