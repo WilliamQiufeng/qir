@@ -15,3 +15,7 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % "test"
 libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % "test"
 libraryDependencies += "org.scala-graph" %% "graph-core" % "2.0.2"
 libraryDependencies += "org.scala-graph" %% "graph-dot" % "2.0.0"
+libraryDependencies ++= Seq(
+  "dev.optics" %% "monocle-core"  % "3.1.0",
+  "dev.optics" %% "monocle-macro" % "3.1.0",
+)

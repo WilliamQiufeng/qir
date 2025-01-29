@@ -4,6 +4,7 @@ import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
 import dag.asDot
+import ssa.FunctionSsaConstructor
 
 
 val hello: Parsley[Unit] = ('h' ~> ("ello" | "i") ~> " world!").void
@@ -24,7 +25,8 @@ def hi(): Unit = {
     x match
       case d: ConcreteFnDecl =>
         val res = FunctionDag(seman, d)
-        val ssa = res.makeSsa
+        val functionInfo = res.makeInfo
+        val ssa = FunctionSsaConstructor(functionInfo).perform
         println(ssa.flowGraph.asDot)
         println(res.errors)
         println(res.symbolTable)
