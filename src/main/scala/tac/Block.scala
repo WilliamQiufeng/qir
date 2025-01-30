@@ -6,7 +6,7 @@ import scalax.collection.immutable.Graph
 import scalax.collection.io.dot.implicits.*
 import scalax.collection.io.dot.*
 import scalax.collection.{AnyGraph, GraphLike, immutable as img}
-import tac.DominatorCalculationState.{MapType, MapValueType}
+import tac.MapFixedPointState.MapType
 import tac.{Label, Tac}
 
 import scala.annotation.{tailrec, targetName}
@@ -87,29 +87,43 @@ private val root = DotRootGraph(
   attrList = List(DotAttr("rank_dir", "TB"))
 )
 
-
-case class DominatorCalculationState[T](map: DominatorCalculationState.MapType[T], fixed: Boolean) {
+trait FixedPointState[T] {
+  val value: T
+  val fixed: Boolean
   @targetName("assign")
-  def <<(newMap: MapType[T]): DominatorCalculationState[T] = {
-    DominatorCalculationState(newMap, fixed && map == newMap)
+  def <<(newValue: T): FixedPointState[T]
+}
+
+case class ValueFixedPointState[T](value: T, fixed: Boolean) extends FixedPointState[T] {
+  @targetName("assign")
+  override def <<(newValue: T): FixedPointState[T] = ValueFixedPointState(newValue, fixed && value == newValue)
+}
+
+case class MapFixedPointState[T, V](value: MapType[T, V], fixed: Boolean) extends FixedPointState[MapFixedPointState.MapType[T, V]]{
+  @targetName("assign")
+  override def <<(newMap: MapType[T ,V]): MapFixedPointState[T ,V] = {
+    MapFixedPointState(newMap, fixed && value == newMap)
   }
 
   @targetName("assign")
-  def <<(newPair: (T, MapValueType[T])): DominatorCalculationState[T] = {
-    if map.get(newPair._1).contains(newPair._2) then
+  def <<(newPair: (T, V)): MapFixedPointState[T, V] = {
+    if value.get(newPair._1).contains(newPair._2) then
       this
     else
-      DominatorCalculationState(map + newPair, false)
+      MapFixedPointState(value + newPair, false)
   }
 }
 
-object DominatorCalculationState {
+object MapFixedPointState {
+  type MapType[T, V] = Map[T, V]
+  type SetMapType[T] = Map[T, Set[T]]
+  type BijectionMapType[T] = Map[T, T]
 
-  type MapValueType[T] = Set[T]
-  type MapType[T] = Map[T, MapValueType[T]]
-
-  def empty[T]: DominatorCalculationState[T] = DominatorCalculationState(Map.empty, true)
+  def empty[T, V]: MapFixedPointState[T, V] = MapFixedPointState(Map.empty[T, V], true)
 }
+
+type SetMapFixedPointState[T] = MapFixedPointState[T, Set[T]]
+type BijectionFixedPointState[T] = MapFixedPointState[T, T]
 
 extension [T](value: T) {
   @tailrec
@@ -122,28 +136,37 @@ extension [V](map: Map[V, Set[V]]) {
   def strict: Map[V, Set[V]] = map.map((v, set) => (v, set - v))
 }
 extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[N, E, CC]) {
-  private def calculateDominatorsFold(dominatorCalculationState: DominatorCalculationState[g.NodeT], curBlock: g.NodeT): DominatorCalculationState[g.NodeT] = {
-    val predDoms = curBlock.diPredecessors.map(dominatorCalculationState.map(_))
+  private def calculateDominatorsFold(dominatorCalculationState: SetMapFixedPointState[g.NodeT], curBlock: g.NodeT): SetMapFixedPointState[g.NodeT] = {
+    val predDoms = curBlock.diPredecessors.map(dominatorCalculationState.value(_))
     val intersection = if predDoms.isEmpty then Set.empty else predDoms.foldLeft(predDoms.head)(_.intersect(_))
     val newDoms = intersection.incl(curBlock)
     dominatorCalculationState << (curBlock -> newDoms)
   }
 
-  def calculateDominators(startBlock: g.NodeT): DominatorCalculationState.MapType[g.NodeT] = {
+  def calculateDominators(startBlock: g.NodeT): MapFixedPointState.SetMapType[g.NodeT] = {
     val nodeSet = g.nodes.toSet
     val initialMap = Map.from(g.nodes.map(b => b -> (if b == startBlock then Set(b) else nodeSet)))
 
-    def f(x: DominatorCalculationState[g.NodeT]): (DominatorCalculationState[g.NodeT], Boolean) = {
+    def f(x: SetMapFixedPointState[g.NodeT]): (SetMapFixedPointState[g.NodeT], Boolean) = {
       val res = g.traverseBfsFold(g get startBlock)(x)(calculateDominatorsFold)
       (res, res.fixed)
     }
-    val res: DominatorCalculationState[g.NodeT] = DominatorCalculationState(initialMap, false).iterateTillFixed(f)
-    res.map
+    val res: SetMapFixedPointState[g.NodeT] = MapFixedPointState(initialMap, false).iterateTillFixed(f)
+    res.value
 
     //    for b <- g.nodes do
     //      val sdoms = b.strictDominators
     //      b.idom = sdoms.find(d => sdoms.excl(d).forall(!_.strictDominators.contains(d)))
   }
+  def calculateIDom(startBlock: g.NodeT): Map[g.NodeT, g.NodeT] =
+    calculateIDomFromSdoms(startBlock, g.calculateDominators(startBlock).strict)
+
+  def calculateIDomFromSdoms(startBlock: g.NodeT, sdoms: Map[g.NodeT, Set[g.NodeT]]): Map[g.NodeT, g.NodeT] =
+    g.nodes.map(b => {
+      val sdom = sdoms(b)
+      b -> sdom.find(d => sdom.excl(d).forall(!sdoms(_).contains(d)))
+    }).foldLeft(Map.empty[g.NodeT, g.NodeT])((m, p) => m.updatedWith(p._1)(_ => p._2))
+    
 }
 extension [CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[Block, BlockEdge, CC]) {
   def makeDomTree(): Graph[Block, BlockEdge] =
