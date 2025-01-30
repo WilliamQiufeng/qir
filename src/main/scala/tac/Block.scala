@@ -8,6 +8,8 @@ import scalax.collection.io.dot.*
 import scalax.collection.{AnyGraph, GraphLike, immutable as img}
 import tac.MapFixedPointState.MapType
 import tac.{Label, Tac}
+import scalax.collection.edges.DiEdgeImplicits
+import tac.DominationMaps.{DominationMap, ImmediateDominationMap, StrictDominationMap}
 
 import scala.annotation.{tailrec, targetName}
 import scala.collection.mutable
@@ -24,7 +26,9 @@ case class BlockTac(tac: Tac, block: Block) {
 
 class Block(val label: Label, val tacs: List[Tac]) {
 
-  override def toString = s"Block $label(df=${dominanceFrontier.map(_.label)}, df+=${dominanceFrontierClosure.map(_.label)}, idom=${idom.map(_.label)}, dom=${dominators.map(_.label)})${tacs.mkString("{\n  ", "\n  ", "\n}")}"
+  override def toString: String = s"Block $label(df=${dominanceFrontier.map(_.label)}, " +
+    s"df+=${dominanceFrontierClosure.map(_.label)}, idom=${idom.map(_.label)}, " +
+    s"dom=${dominators.map(_.label)})${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 
   var dominators: Set[Block] = Set.empty
 
@@ -46,6 +50,44 @@ class Block(val label: Label, val tacs: List[Tac]) {
   //    for tac <- tacs do
   //      tac.sources.foreach(s => s.uses = s.uses.incl(BlockTac(tac, this)))
   //  }
+}
+
+object DominationMaps {
+  opaque type DominationMap[T] = Map[T, Set[T]]
+  extension [T](m: DominationMap[T]) {
+    def dom(a: T, b: T): Boolean = m.get(b).exists(_.contains(a))
+    @targetName("domS")
+    def sdom(a: T, b: T): Boolean = dom(a, b) && a != b
+    def strict: StrictDominationMap[T] = StrictDominationMap(m)
+    def apply(key: T): Set[T] = m(key)
+  }
+  object DominationMap {
+    def apply[T](map: Map[T, Set[T]]): DominationMap[T] = map
+  }
+
+  opaque type StrictDominationMap[T] = Map[T, Set[T]]
+  extension [T](m: StrictDominationMap[T]) {
+    @targetName("sdom")
+    def sdom(a: T, b: T): Boolean = m.get(b).exists(_.contains(a))
+    @targetName("sdomApply")
+    def apply(key: T): Set[T] = m(key)
+  }
+
+  object StrictDominationMap {
+    def apply[T](map: DominationMap[T]): StrictDominationMap[T] = map.map((v, set) => (v, set - v))
+  }
+
+  opaque type ImmediateDominationMap[T] = Map[T, T]
+  extension [T](m: ImmediateDominationMap[T]) {
+    @targetName("idom")
+    def idom(a: T, b: T): Boolean = m.get(b).contains(a)
+    @targetName("idomApply")
+    def apply(key: T): Option[T] = m.get(key)
+  }
+
+  object ImmediateDominationMap {
+    def apply[T](map: Map[T, T]): ImmediateDominationMap[T] = map
+  }
 }
 
 extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](graph: GraphLike[N, E, CC]) {
@@ -90,6 +132,7 @@ private val root = DotRootGraph(
 trait FixedPointState[T] {
   val value: T
   val fixed: Boolean
+
   @targetName("assign")
   def <<(newValue: T): FixedPointState[T]
 }
@@ -99,9 +142,9 @@ case class ValueFixedPointState[T](value: T, fixed: Boolean) extends FixedPointS
   override def <<(newValue: T): FixedPointState[T] = ValueFixedPointState(newValue, fixed && value == newValue)
 }
 
-case class MapFixedPointState[T, V](value: MapType[T, V], fixed: Boolean) extends FixedPointState[MapFixedPointState.MapType[T, V]]{
+case class MapFixedPointState[T, V](value: MapType[T, V], fixed: Boolean) extends FixedPointState[MapFixedPointState.MapType[T, V]] {
   @targetName("assign")
-  override def <<(newMap: MapType[T ,V]): MapFixedPointState[T ,V] = {
+  override def <<(newMap: MapType[T, V]): MapFixedPointState[T, V] = {
     MapFixedPointState(newMap, fixed && value == newMap)
   }
 
@@ -143,7 +186,7 @@ extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyG
     dominatorCalculationState << (curBlock -> newDoms)
   }
 
-  def calculateDominators(startBlock: g.NodeT): MapFixedPointState.SetMapType[g.NodeT] = {
+  def calculateDominators(startBlock: g.NodeT): DominationMap[g.NodeT] = {
     val nodeSet = g.nodes.toSet
     val initialMap = Map.from(g.nodes.map(b => b -> (if b == startBlock then Set(b) else nodeSet)))
 
@@ -151,37 +194,31 @@ extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyG
       val res = g.traverseBfsFold(g get startBlock)(x)(calculateDominatorsFold)
       (res, res.fixed)
     }
-    val res: SetMapFixedPointState[g.NodeT] = MapFixedPointState(initialMap, false).iterateTillFixed(f)
-    res.value
 
-    //    for b <- g.nodes do
-    //      val sdoms = b.strictDominators
-    //      b.idom = sdoms.find(d => sdoms.excl(d).forall(!_.strictDominators.contains(d)))
+    val res: SetMapFixedPointState[g.NodeT] = MapFixedPointState(initialMap, false).iterateTillFixed(f)
+    DominationMap(res.value)
   }
   def calculateIDom(startBlock: g.NodeT): Map[g.NodeT, g.NodeT] =
     calculateIDomFromSdoms(startBlock, g.calculateDominators(startBlock).strict)
 
-  def calculateIDomFromSdoms(startBlock: g.NodeT, sdoms: Map[g.NodeT, Set[g.NodeT]]): Map[g.NodeT, g.NodeT] =
+  def calculateIDomFromSdoms(startBlock: g.NodeT, sdoms: StrictDominationMap[g.NodeT]): Map[g.NodeT, g.NodeT] =
     g.nodes.map(b => {
       val sdom = sdoms(b)
       b -> sdom.find(d => sdom.excl(d).forall(!sdoms(_).contains(d)))
     }).foldLeft(Map.empty[g.NodeT, g.NodeT])((m, p) => m.updatedWith(p._1)(_ => p._2))
-    
+
+  def calculateDominanceFrontiers(sdoms: StrictDominationMap[g.NodeT], idoms: ImmediateDominationMap[g.NodeT]): Unit = {
+    for edge <- g.edges do
+      var x = edge.sources.head
+      while !(sdoms.sdom(x, edge.targets.head)) do
+//        x.dominanceFrontier = x.dominanceFrontier.incl(edge.target)
+        x = idoms(x).get
+  }
 }
 extension [CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[Block, BlockEdge, CC]) {
   def makeDomTree(): Graph[Block, BlockEdge] =
     Graph.from(g.nodes.map(_.self), g.nodes.flatMap(b => b.idom.map(BlockEdge(_, b))))
 
-
-  def calculateDominanceFrontiers(): Unit = {
-    for edge <- g.edges do
-      var x = edge.source
-      while !(x sdom edge.target) do
-        x.dominanceFrontier = x.dominanceFrontier.incl(edge.target)
-        x = x.idom.get
-
-    calculateDominanceFrontierClosures()
-  }
 
   def calculateDominanceFrontierClosures(): Unit = {
     g.nodes.foreach(b => b.dominanceFrontierClosure = b.dominanceFrontier)
