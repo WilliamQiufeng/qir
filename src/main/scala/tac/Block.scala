@@ -6,8 +6,10 @@ import scalax.collection.immutable.Graph
 import scalax.collection.io.dot.implicits.*
 import scalax.collection.io.dot.*
 import scalax.collection.{AnyGraph, GraphLike, immutable as img}
+import tac.DominatorCalculationState.{MapType, MapValueType}
 import tac.{Label, Tac}
 
+import scala.annotation.{tailrec, targetName}
 import scala.collection.mutable
 
 class BlockEdge(source: Block, target: Block) extends AbstractDiEdge[Block](source, target) {
@@ -40,14 +42,14 @@ class Block(val label: Label, val tacs: List[Tac]) {
 
   def self: Block = this
 
-//  def fillDefUse(): Unit = {
-//    for tac <- tacs do
-//      tac.sources.foreach(s => s.uses = s.uses.incl(BlockTac(tac, this)))
-//  }
+  //  def fillDefUse(): Unit = {
+  //    for tac <- tacs do
+  //      tac.sources.foreach(s => s.uses = s.uses.incl(BlockTac(tac, this)))
+  //  }
 }
 
 extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](graph: GraphLike[N, E, CC]) {
-  def traverseDfs(start: graph.NodeT, f: graph.NodeT => Unit): Unit = {
+  def traverseDfs(start: graph.NodeT)(f: graph.NodeT => Unit): Unit = {
     val dfsStack = mutable.Stack(graph get start)
     val visited: mutable.Set[graph.NodeT] = mutable.Set.empty
     while dfsStack.nonEmpty do
@@ -56,7 +58,7 @@ extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyG
         dfsStack.pushAll((graph get b).diSuccessors)
         f(b)
   }
-  def traverseBfs(start: graph.NodeT, f: graph.NodeT => Unit): Unit = {
+  def traverseBfs(start: graph.NodeT)(f: graph.NodeT => Unit): Unit = {
     val bfsQueue = mutable.Queue(graph get start)
     val visited: mutable.Set[graph.NodeT] = mutable.Set.empty
     while bfsQueue.nonEmpty do
@@ -64,6 +66,17 @@ extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyG
       if visited.add(b) then
         bfsQueue.enqueueAll((graph get b).diSuccessors)
         f(b)
+  }
+  def traverseBfsFold[T](start: graph.NodeT)(initialValue: T)(f: (T, graph.NodeT) => T): T = {
+    val bfsQueue = mutable.Queue(graph get start)
+    val visited: mutable.Set[graph.NodeT] = mutable.Set.empty
+    var value = initialValue
+    while bfsQueue.nonEmpty do
+      val b = bfsQueue.dequeue()
+      if visited.add(b) then
+        bfsQueue.enqueueAll((graph get b).diSuccessors)
+        value = f(value, b)
+    value
   }
 }
 
@@ -73,31 +86,64 @@ private val root = DotRootGraph(
   attrStmts = List(DotAttrStmt(Elem.node, List(DotAttr("shape", "box")))),
   attrList = List(DotAttr("rank_dir", "TB"))
 )
+
+
+case class DominatorCalculationState[T](map: DominatorCalculationState.MapType[T], fixed: Boolean) {
+  @targetName("assign")
+  def <<(newMap: MapType[T]): DominatorCalculationState[T] = {
+    DominatorCalculationState(newMap, fixed && map == newMap)
+  }
+
+  @targetName("assign")
+  def <<(newPair: (T, MapValueType[T])): DominatorCalculationState[T] = this << (map + newPair)
+}
+
+object DominatorCalculationState {
+
+  type MapValueType[T] = Set[T]
+  type MapType[T] = Map[T, MapValueType[T]]
+
+  def empty[T]: DominatorCalculationState[T] = DominatorCalculationState(Map.empty, true)
+}
+
+extension [T](value: T) {
+  @tailrec
+  def iterateTillFixed(f: T => (T, Boolean)): T = {
+    val (result, fixed) = f(value)
+    if fixed then value else value.iterateTillFixed(f)
+  }
+}
+extension [V](map: Map[V, Set[V]]) {
+  def strict: Map[V, Set[V]] = map.map((v, set) => (v, set - v))
+}
+extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[N, E, CC]) {
+  private def calculateDominatorsFold(dominatorCalculationState: DominatorCalculationState[g.NodeT], curBlock: g.NodeT): DominatorCalculationState[g.NodeT] = {
+    val predDoms = curBlock.diPredecessors.map(dominatorCalculationState.map(_))
+    val intersection = if predDoms.isEmpty then Set.empty else predDoms.foldLeft(predDoms.head)(_.intersect(_))
+    val newDoms = intersection.incl(curBlock)
+    dominatorCalculationState << (curBlock -> newDoms)
+  }
+
+  def calculateDominators(startBlock: g.NodeT): DominatorCalculationState.MapType[g.NodeT] = {
+    val nodeSet = g.nodes.toSet
+    val initialMap = Map.from(g.nodes.map(b => b -> (if b == startBlock then Set(b) else nodeSet)))
+
+    def f(x: DominatorCalculationState[g.NodeT]): (DominatorCalculationState[g.NodeT], Boolean) = {
+      val res = g.traverseBfsFold(g get startBlock)(x)(calculateDominatorsFold)
+      (res, res.fixed)
+    }
+    val res: DominatorCalculationState[g.NodeT] = DominatorCalculationState(initialMap, false).iterateTillFixed(f)
+    res.map
+
+    //    for b <- g.nodes do
+    //      val sdoms = b.strictDominators
+    //      b.idom = sdoms.find(d => sdoms.excl(d).forall(!_.strictDominators.contains(d)))
+  }
+}
 extension [CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[Block, BlockEdge, CC]) {
   def makeDomTree(): Graph[Block, BlockEdge] =
     Graph.from(g.nodes.map(_.self), g.nodes.flatMap(b => b.idom.map(BlockEdge(_, b))))
 
-  def calculateDominators(startBlock: Block): Unit = {
-    val nodeSet = g.nodes.map(_.self).toSet
-    g.nodes.foreach(b => b.dominators = if b == startBlock then Set(b) else nodeSet)
-
-    var fixedPoint = false
-    while !fixedPoint do
-      fixedPoint = true
-      g.traverseBfs(g get startBlock, curBlock =>
-        val predDoms = curBlock.diPredecessors.map(_.dominators)
-        val intersection = if predDoms.isEmpty then Set.empty else predDoms.foldLeft(predDoms.head)(_.intersect(_))
-        val newDoms = intersection.incl(curBlock)
-        if !(curBlock.dominators equals newDoms) then
-          fixedPoint = false
-
-        curBlock.dominators = newDoms
-      )
-
-    for b <- g.nodes do
-      val sdoms = b.strictDominators
-      b.idom = sdoms.find(d => sdoms.excl(d).forall(!_.strictDominators.contains(d)))
-  }
 
   def calculateDominanceFrontiers(): Unit = {
     for edge <- g.edges do
