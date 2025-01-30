@@ -205,7 +205,7 @@ extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyG
     g.nodes.map(b => {
       val sdom = sdoms(b)
       b -> sdom.find(d => sdom.excl(d).forall(!sdoms(_).contains(d)))
-    }).foldLeft(Map.empty[g.NodeT, g.NodeT])((m, p) => m.updatedWith(p._1)(_ => p._2))
+    }).collect({case (k, Some(v)) => (k, v)}).toMap
 
   def calculateDominanceFrontiers(sdoms: StrictDominationMap[g.NodeT], idoms: ImmediateDominationMap[g.NodeT]): Unit = {
     for edge <- g.edges do
