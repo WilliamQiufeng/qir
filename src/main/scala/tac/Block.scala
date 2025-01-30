@@ -95,7 +95,12 @@ case class DominatorCalculationState[T](map: DominatorCalculationState.MapType[T
   }
 
   @targetName("assign")
-  def <<(newPair: (T, MapValueType[T])): DominatorCalculationState[T] = this << (map + newPair)
+  def <<(newPair: (T, MapValueType[T])): DominatorCalculationState[T] = {
+    if map.get(newPair._1).contains(newPair._2) then
+      this
+    else
+      DominatorCalculationState(map + newPair, false)
+  }
 }
 
 object DominatorCalculationState {
