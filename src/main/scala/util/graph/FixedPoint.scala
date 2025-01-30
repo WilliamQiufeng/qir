@@ -7,9 +7,12 @@ object FixedPoint {
 
   import util.graph.FixedPoint.MapFixedPointState.MapType
 
-  trait FixedPointState[T] {
-    val value: T
+  trait WithFixed {
     val fixed: Boolean
+  }
+
+  trait FixedPointState[T] extends WithFixed {
+    val value: T
 
     @targetName("assign")
     def <<(newValue: T): FixedPointState[T]
@@ -46,11 +49,11 @@ object FixedPoint {
   type SetMapFixedPointState[T] = MapFixedPointState[T, Set[T]]
   type BijectionFixedPointState[T] = MapFixedPointState[T, T]
 
-  extension [T](value: T) {
+  extension [T <: WithFixed](value: T) {
     @tailrec
-    def iterateTillFixed(f: T => (T, Boolean)): T = {
-      val (result, fixed) = f(value)
-      if fixed then value else value.iterateTillFixed(f)
+    def iterateTillFixed(f: T => T): T = {
+      val result = f(value)
+      if result.fixed then value else value.iterateTillFixed(f)
     }
   }
   extension [V](map: Map[V, Set[V]]) {

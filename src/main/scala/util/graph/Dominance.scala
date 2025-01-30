@@ -78,12 +78,8 @@ object Dominance {
       val nodeSet = g.nodes.outerIterable.toSet
       val initialMap: Map[N, Set[N]] = Map.from(nodeSet.map(b => b -> (if b == startBlock then Set(b) else nodeSet)))
 
-      def f(x: SetMapFixedPointState[N]): (SetMapFixedPointState[N], Boolean) = {
-        val res = g.traverseBfsFold(g get startBlock)(x)(calculateDominatorsFold)
-        (res, res.fixed)
-      }
-
-      val res: SetMapFixedPointState[N] = MapFixedPointState(initialMap, false).iterateTillFixed(f)
+      val res: SetMapFixedPointState[N] = MapFixedPointState(initialMap, false)
+        .iterateTillFixed(x => g.traverseBfsFold(g get startBlock)(x)(calculateDominatorsFold))
       DominationMap(res.value)
     }
     def calculateIDom(startBlock: g.NodeT): ImmediateDominationMap[N] =
@@ -111,10 +107,8 @@ object Dominance {
     def calculateDominanceFrontierClosures(dominanceFrontierMap: DominanceFrontierMap[N]): DominanceFrontierClosureMap[N] = {
       val initial = g.nodes.outerIterable.map(b => b -> dominanceFrontierMap(b)).toMap
       val res = MapFixedPointState(initial, false).iterateTillFixed(currentState =>
-        val res = currentState << currentState.value.map((block, dfClosure) =>
-          block -> currentState.value(block).foldLeft(dfClosure)((accDfClosure, df) =>
-            accDfClosure | currentState.value(df)))
-        (res, res.fixed))
+        currentState << currentState.value.map((block, dfClosure) =>
+          block -> dfClosure.foldLeft(dfClosure)((accDfClosure, df) => accDfClosure | currentState.value(df))))
       DominanceFrontierClosureMap(res.value)
     }
     def makeDomTree(immediateDominationMap: ImmediateDominationMap[N]): Graph[N, DiEdge[N]] =
