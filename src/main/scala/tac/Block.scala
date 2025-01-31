@@ -12,17 +12,13 @@ import scalax.collection.edges.DiEdgeImplicits
 import scala.annotation.{tailrec, targetName}
 import scala.collection.mutable
 
-class BlockEdge(source: Block, target: Block) extends AbstractDiEdge[Block](source, target) {
-
-}
-
-case class BlockTac(tac: Tac, block: Block) {
+case class BlockTac(tac: Tac[TacImpl], block: Block) {
   override def toString: String = s"$tac in ${block.label}"
 }
 
 //type BlockEdge = DiEdge[Block]
 
-case class Block(label: Label, tacs: List[Tac]) {
+case class Block(label: Label, tacs: List[Tac[TacImpl]]) {
 
   override def toString: String = s"Block $label${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 
@@ -41,24 +37,28 @@ private val root = DotRootGraph(
   attrStmts = List(DotAttrStmt(Elem.node, List(DotAttr("shape", "box")))),
   attrList = List(DotAttr("rank_dir", "TB"))
 )
-extension [CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[Block, BlockEdge, CC]) {
+extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[N, E, CC]) {
 
-  private def edgeTransformer(innerEdge: img.Graph[Block, BlockEdge]#EdgeT): Option[(DotGraph, DotEdgeStmt)] = {
+  private def edgeTransformer[T](innerEdge: img.Graph[N, E]#EdgeT): Option[(DotGraph, DotEdgeStmt)] = {
     val edge = innerEdge.outer
-    val label = ""
     Some(
       root,
       DotEdgeStmt(
-        NodeId(edge.source.toString),
-        NodeId(edge.target.toString),
-        if (label.nonEmpty) List(DotAttr(Id("label"), Id(label)))
-        else Nil
+        NodeId(edge.sources.head.toString),
+        NodeId(edge.targets.head.toString)
       )
     )
   }
+  private def cnodeTransformer[T](mapping: N => T, innerNode: img.Graph[N, E]#NodeT): Option[(DotGraph, DotNodeStmt)] = {
+    val node = innerNode.outer
+    Some(
+      root,
+      DotNodeStmt(node.toString, List(DotAttr(Id("label"), Id(mapping(node).toString))))
+    )
+  }
 
-  def asDot: String = {
-    val immutableGraph: img.Graph[Block, BlockEdge] = img.Graph.from(g.nodes.outerIterable, g.edges.outerIterable)
-    immutableGraph.toDot(root, edgeTransformer)
+  def asDot[T](mapping: N => T): String = {
+    val immutableGraph: img.Graph[N, E] = img.Graph.from(g.nodes.outerIterable, g.edges.outerIterable)
+    immutableGraph.toDot(root, edgeTransformer, cNodeTransformer = Some(cnodeTransformer(mapping, _)))
   }
 }

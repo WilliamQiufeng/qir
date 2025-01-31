@@ -74,7 +74,7 @@ object Dominance {
       dominatorCalculationState << (curBlock.outer -> newDoms)
     }
 
-    def calculateDominators(startBlock: g.NodeT): DominationMap[N] = {
+    def calculateDominators(startBlock: N): DominationMap[N] = {
       val nodeSet = g.nodes.outerIterable.toSet
       val initialMap: Map[N, Set[N]] = Map.from(nodeSet.map(b => b -> (if b == startBlock then Set(b) else nodeSet)))
 
@@ -82,10 +82,10 @@ object Dominance {
         .iterateTillFixed(x => g.traverseBfsFold(g get startBlock)(x)(calculateDominatorsFold))
       DominationMap(res.value)
     }
-    def calculateIDom(startBlock: g.NodeT): ImmediateDominationMap[N] =
+    def calculateIDom(startBlock: N): ImmediateDominationMap[N] =
       calculateIDomFromSdoms(startBlock, g.calculateDominators(startBlock))
 
-    def calculateIDomFromSdoms(startBlock: g.NodeT, doms: DominationMap[N]): ImmediateDominationMap[N] =
+    def calculateIDomFromSdoms(startBlock: N, doms: DominationMap[N]): ImmediateDominationMap[N] =
       ImmediateDominationMap(
         g.nodes.outerIterable.map(b => {
           val sdom = doms.sdoms(b)
@@ -114,7 +114,7 @@ object Dominance {
     def makeDomTree(immediateDominationMap: ImmediateDominationMap[N]): Graph[N, DiEdge[N]] =
       Graph.from(g.nodes.outerIterable, g.nodes.flatMap(b => immediateDominationMap(b).map(x => DiEdge(x, b))))
 
-    def makeDominanceInfo(startNode: g.NodeT): DominanceInfo[N] = {
+    def makeDominanceInfo(startNode: N): DominanceInfo[N] = {
       val domMap = calculateDominators(startNode)
       val idomMap = calculateIDomFromSdoms(startNode, domMap)
       val df = calculateDominanceFrontiers(domMap, idomMap)

@@ -7,23 +7,26 @@ object FixedPoint {
 
   import util.graph.FixedPoint.MapFixedPointState.MapType
 
-  trait WithFixed {
+  trait WithFixed[+T <: WithFixed[T]] {
     val fixed: Boolean
+    def resetFixed: T
   }
 
-  trait FixedPointState[T] extends WithFixed {
+  trait FixedPointState[T, +CC <: FixedPointState[T, CC]] extends WithFixed[CC] {
     val value: T
 
     @targetName("assign")
-    def <<(newValue: T): FixedPointState[T]
+    def <<(newValue: T): CC
   }
 
-  case class ValueFixedPointState[T](value: T, fixed: Boolean) extends FixedPointState[T] {
+  case class ValueFixedPointState[T](value: T, fixed: Boolean) extends FixedPointState[T, ValueFixedPointState[T]] {
     @targetName("assign")
-    override def <<(newValue: T): FixedPointState[T] = ValueFixedPointState(newValue, fixed && value == newValue)
+    override def <<(newValue: T): ValueFixedPointState[T] = ValueFixedPointState(newValue, fixed && value == newValue)
+
+    override def resetFixed: ValueFixedPointState[T] = ValueFixedPointState(value, true)
   }
 
-  case class MapFixedPointState[T, V](value: MapType[T, V], fixed: Boolean) extends FixedPointState[MapFixedPointState.MapType[T, V]] {
+  case class MapFixedPointState[T, V](value: MapType[T, V], fixed: Boolean) extends FixedPointState[MapFixedPointState.MapType[T, V], MapFixedPointState[T, V]] {
     @targetName("assign")
     override def <<(newMap: MapType[T, V]): MapFixedPointState[T, V] = {
       MapFixedPointState(newMap, fixed && value == newMap)
@@ -36,6 +39,8 @@ object FixedPoint {
       else
         MapFixedPointState(value + newPair, false)
     }
+
+    override def resetFixed: MapFixedPointState[T, V] = MapFixedPointState(value, true)
   }
 
   object MapFixedPointState {
@@ -49,11 +54,11 @@ object FixedPoint {
   type SetMapFixedPointState[T] = MapFixedPointState[T, Set[T]]
   type BijectionFixedPointState[T] = MapFixedPointState[T, T]
 
-  extension [T <: WithFixed](value: T) {
+  extension [T <: WithFixed[T]](value: T) {
     @tailrec
     def iterateTillFixed(f: T => T): T = {
-      val result = f(value)
-      if result.fixed then value else value.iterateTillFixed(f)
+      val result = f(value.resetFixed)
+      if result.fixed then result else result.iterateTillFixed(f)
     }
   }
   extension [V](map: Map[V, Set[V]]) {

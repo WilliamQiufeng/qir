@@ -17,16 +17,16 @@ package object parser {
       | TypeStruct(STRUCT_ID)
       | TypePointer("*" ~> valueType)
   private lazy val param: Parsley[Param] = Param(VAR_ID, ":" ~> valueType)
-  private lazy val expr = AddInt("addi" ~> atom, atom) | SubInt("subi" ~> atom, atom) | MulInt("muli" ~> atom, atom) | DivInt("divi" ~> atom, atom)
-    | Call("call" ~> labelValue, parenList(atom))
+  private lazy val expr = AddInt("addi" ~> local, local) | SubInt("subi" ~> local, local) | MulInt("muli" ~> local, local) | DivInt("divi" ~> local, local)
+    | Call("call" ~> labelValue, parenList(local))
     | arrayAccess
-    | atom
+    | local
   private lazy val stmt =
     Assign(local, "=" ~> expr)
-      | AssignElement(arrayAccess, "=" ~> atom)
+      | AssignElement(arrayAccess, "=" ~> local)
   private lazy val jump =
-    Ret("ret" ~> (atom <|> pure(ConstUnit)))
-      | Branch("branch" ~> atom, labelValue, labelValue)
+    Ret("ret" ~> local)
+      | Branch("branch" ~> local, labelValue, labelValue)
       | Goto("goto" ~> labelValue)
   private lazy val declaration = Declaration("declare" ~> local, ":" ~> valueType)
   private lazy val labelledBlock = LabelledBlock(labelValue, ":" ~> many(stmt), jump)
@@ -40,11 +40,10 @@ package object parser {
       | ConstInteger(INTEGER)
       | ConstString(STRING)
       | ConstChar(CHAR)
-      | ConstUndefined("undefined" ~> "(" ~> valueType <~ ")")
+      | ("undefined" as ConstUndefined)
   private val local: Parsley[Local] = Local(VAR_ID)
   private val labelValue: Parsley[LabelValue] = LabelValue(LABEL_ID)
-  private val atom: Parsley[Atom] = local | const
-  private val arrayAccess: Parsley[ArrayAccess] = ArrayAccess("[" ~> atom <~ "]", Local(VAR_ID))
+  private val arrayAccess: Parsley[ArrayAccess] = ArrayAccess("[" ~> local <~ "]", Local(VAR_ID))
 
   private def parenList[T](arg: Parsley[T]) = "(" ~> sepEndBy(arg, ",") <~ ")"
 }

@@ -10,6 +10,10 @@ case object UnitType extends Type("Unit") {
   override val size: Int = 0
 }
 
+case object UndefinedType extends Type("Undefined") {
+  override val size: Int = 0
+}
+
 case object IntType extends Type("Int") {
   override val size = 4
 }

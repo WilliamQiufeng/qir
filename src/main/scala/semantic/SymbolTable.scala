@@ -9,39 +9,50 @@ sealed trait IRSymbol:
   val temp: Temp
   val ty: Type
   val debugName: Option[String]
+  val undefined: Boolean
 
-case class NormalIRSymbol(temp: Temp, ty: Type, debugName: Option[String] = None)
+case class NormalIRSymbol(temp: Temp, ty: Type, debugName: Option[String] = None, undefined: Boolean = false)
   extends IRSymbol {
   override def toString = s"${debugName.mkString}($temp)"
 }
 
 case class TypeIRSymbol(ty: Type, debugName: Option[String] = None) extends IRSymbol {
   override val temp: Temp = Temp()
+  override val undefined: Boolean = false
 }
 
-sealed trait SSASymbol extends IRSymbol
+sealed trait SsaSymbol extends IRSymbol {
+  def origin: SsaRootSymbol
+}
 
-case class SSARootSymbol(temp: Temp, ty: Type,
-                         debugName: Option[String] = None) extends SSASymbol {
+sealed trait SsaRootSymbol extends SsaSymbol {
+  def origin: SsaRootSymbol = this
+}
+
+case class SsaNormalSymbol(temp: Temp, ty: Type,
+                           debugName: Option[String] = None, undefined: Boolean = false) extends SsaRootSymbol {
   override def toString = s"${debugName.mkString}($temp)"
-
+  override def origin: SsaRootSymbol = this
   var uses: Set[BlockTac] = Set.empty
-  val stack: mutable.Stack[IRSymbol] = mutable.Stack.empty
 }
 
-case class SSADerivedSymbol(origin: SSARootSymbol) extends SSASymbol {
+case class SsaDerivedSymbol(origin: SsaRootSymbol) extends SsaSymbol {
   override def toString = s"$origin.$temp"
 
   override val temp: Temp = Temp()
   override val ty: Type = origin.ty
   override val debugName: Option[String] = Some(s"${origin.debugName}.${temp.id}")
+  override val undefined: Boolean = false
 }
 
 case class ConstIRSymbol(const: ast.Const,
                          temp: Temp,
                          ty: Type,
-                         debugName: Option[String] = None) extends SSASymbol {
+                         debugName: Option[String] = None) extends SsaRootSymbol {
   override def toString = s"$const($temp)"
+
+  override val undefined: Boolean = false
+  override def origin: SsaRootSymbol = this
 }
 
 sealed trait SymbolTable[KeyType, SymbolType <: IRSymbol, +CC <: SymbolTable[KeyType, SymbolType, CC]] {

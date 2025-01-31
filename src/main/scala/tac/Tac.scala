@@ -1,11 +1,17 @@
 package tac
 
-import semantic.IRSymbol
+import semantic.Temp
 import cats.syntax.all.*
 
-sealed trait Tac(var sources: Array[IRSymbol], var definition: Option[IRSymbol])
+case class Tac[Impl <: TacImpl](sources: IndexedSeq[Temp], definition: Option[Temp], impl: Impl) {
+  override def toString: String = toStringNamed(x => x)
 
-sealed trait Jump(var targets: Array[Label])
+  def toStringNamed[T](mapping: Temp => T): String = s"${definition.map(mapping).mkString} <- $impl ${sources.map(mapping).mkString(", ")}"
+}
+
+sealed trait TacImpl
+
+sealed trait Jump(var targets: IndexedSeq[Label]) extends TacImpl
 
 enum BinaryArithOp {
   case AddI
@@ -14,41 +20,39 @@ enum BinaryArithOp {
   case DivI
 }
 
-case class BinaryArith(op: BinaryArithOp, target: IRSymbol, arg1: IRSymbol, arg2: IRSymbol) extends Tac(Array(arg1, arg2), target.some) {
-  override def toString = s"${definition.mkString} <- $op ${sources(0)} ${sources(1)}"
+case class BinaryArith(op: BinaryArithOp) extends TacImpl {
+  override def toString = s"$op"
 }
 
-case class Move(target: IRSymbol, source: IRSymbol) extends Tac(Array(source), target.some) {
-  override def toString = s"${definition.mkString} <- ${sources(0)}"
+case object Move extends TacImpl {
+  override def toString = s""
 }
 
-case class Call(target: IRSymbol, function: IRSymbol, arguments: List[IRSymbol]) extends Tac(arguments.toArray, target.some) {
-  override def toString = s"${definition.mkString} <- call $function${sources.mkString("(", ", ", ")")}"
+case class Call(fnName: String) extends TacImpl {
+  override def toString = s"call $fnName,"
 }
 
-
-case class Goto(var label: Label) extends Tac(Array(), None), Jump(Array(label)) {
+case class Goto(label: Label) extends Jump(IndexedSeq(label)) {
   override def toString: String = s"goto $label"
 }
 
-case class Branch(test: IRSymbol, var label1: Label, var label2: Label) extends Tac(Array(test), None), Jump(Array(label1, label2)) {
-  override def toString: String = s"branch ${sources(0)} $label1 $label2"
+case class Branch(label1: Label, label2: Label) extends Jump(IndexedSeq(label1, label2)) {
+  override def toString: String = s"branch $label1 $label2"
 }
 
-case class Ret(value: IRSymbol) extends Tac(Array(value), None), Jump(Array()) {
-  override def toString: String = s"ret ${sources(0)}"
+case object Ret extends Jump(IndexedSeq()) {
+  override def toString: String = "ret"
 }
 
-case class Phi(target: IRSymbol, args: Array[IRSymbol], blocks: Array[Block]) extends Tac(args, target.some) {
-  private val blockSymbolMap = Map.from(blocks zip args.indices)
+case class Phi(blockLabels: IndexedSeq[Label]) extends TacImpl {
+  private val labelIndex = Map.from(blockLabels.zipWithIndex)
 
-  def replace(block: Block, transform: IRSymbol => IRSymbol): Boolean = {
-    blockSymbolMap.get(block) match
+  def replace(label: Label, transform: Temp => Temp, tac: Tac[Phi]): Tac[Phi] = {
+    labelIndex.get(label) match
       case Some(i) =>
-        sources.update(i, transform(sources(i)))
-        true
-      case None => false
+        tac.copy(sources = tac.sources.updated(i, transform(tac.sources(i))))
+      case None => tac
   }
 
-  override def toString: String = s"${definition.mkString} <- phi ${sources.mkString("(", ", ", ")")}"
+  override def toString: String = "phi"
 }

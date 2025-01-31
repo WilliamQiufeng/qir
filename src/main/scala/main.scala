@@ -3,6 +3,7 @@ import dag.FunctionDag
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
+import ssa.{FunctionSsaConstructor, FunctionSsaPass, SsaConstructionPass}
 import tac.asDot
 
 
@@ -24,9 +25,11 @@ def hi(): Unit = {
           case d: ConcreteFnDecl =>
             val res = FunctionDag(info, d)
             val functionInfo = res.makeInfo
+            val ssaFunctionInfo = FunctionSsaConstructor(functionInfo).perform
             println(res.errors)
             println(res.symbolTable)
-            println(res.graph.asDot)
+            println(res.graph.asDot(x => ssaFunctionInfo.labelMap(x).toStringMapped(ssaFunctionInfo.tempMap)))
+            println(ssaFunctionInfo.tempMap)
 //            val ssa = FunctionSsaConstructor(functionInfo).perform
 //            println(ssa.flowGraph.asDot)
 //            res.symbolTable.values.foreach(s =>

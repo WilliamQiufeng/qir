@@ -15,52 +15,50 @@ case object FunctionDagGenerationPass extends FunctionPass[ast.ConcreteFnDecl, F
 }
 
 case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, private val functionDecl: ast.ConcreteFnDecl) {
-  private val returnSink: IRSymbol = NormalIRSymbol(Temp(), functionDecl.retTy, "%ret".some)
+  private val returnSink: Temp = Temp()
   private val startBlock: Label = Label()
   private val endBlock: Label = Label()
   val symbolTable: FunctionSymbolTable = {
     val table = functionDecl.args.foldLeft(FunctionSymbolTable())((table, arg) =>
       table.insert(arg.name, NormalIRSymbol(Temp(), arg.ty, arg.name.some)))
     functionDecl.block.declarations.foldLeft(table)((table, declaration) =>
-      table.insert(declaration.local.name, NormalIRSymbol(Temp(), declaration.ty, declaration.local.name.some)))
+      table.insert(declaration.local.name, NormalIRSymbol(Temp(), declaration.ty, declaration.local.name.some, true)))
   }
+  private val tempMap: Map[Temp, IRSymbol] = symbolTable.map.map(p => p._2.temp -> p._2) ++ semanticAnalysis.constTempMap +
+    (returnSink -> NormalIRSymbol(returnSink, functionDecl.retTy, "%ret".some))
   private val labelSymbolMap: Map[ast.LabelValue, Label] = Map.from(functionDecl.block.labelledBlocks.map(_.name -> Label()))
   private val labelMap: Map[Label, Block] = Map.from(
       functionDecl.block.labelledBlocks.map(labelledBlock =>
         val label = labelSymbolMap(labelledBlock.name)
         label -> makeBlock(label, labelledBlock))
     )
-    .updated(startBlock, Block(startBlock, makeUndefinedDeclarationList()))
-    .updated(endBlock, Block(endBlock, List(Ret(returnSink))))
+    .updated(startBlock, Block(startBlock, List()))
+    .updated(endBlock, Block(endBlock, List(Tac(IndexedSeq(returnSink), None, Ret))))
   val errors: ArrayBuffer[SemanticError] = ArrayBuffer.empty
 
-  private val edges: Iterable[BlockEdge] = labelMap.values.flatMap { block =>
+  private val edges: Iterable[LabelEdge] = labelMap.values.flatMap { block =>
     block.tacs.lastOption match
-      case Some(j: Jump) => j.targets.map(BlockEdge(block, _))
+      case Some(t) => t.impl match
+        case j: Jump => j.targets.map(LabelEdge(block.label, _))
+        case _ => Iterable.empty
       case _ => Iterable.empty
-  }.concat(functionDecl.block.labelledBlocks.headOption map (b => BlockEdge(startBlock, lookupBlock(b.name))))
+  }.concat(functionDecl.block.labelledBlocks.headOption map (b => LabelEdge(startBlock, b.name)))
 
   // Construct graph
-  val graph: Graph[Block, BlockEdge] = Graph.from(Iterable(startBlock, endBlock).map(lookupBlock).concat(labelMap.values), edges)
+  val graph: Graph[Label, LabelEdge] = Graph.from(labelMap.keys, edges)
 
   private implicit def valueTypeToType(valueType: ast.ValueType): Type =
     semanticAnalysis.lookupValueType(valueType).get
 
-  private implicit def localToTemp(local: ast.Local): IRSymbol = local.name
+  private implicit def localToTemp(local: ast.Local): Temp = local.name
 
-  private implicit def atomToTemp(atom: ast.Atom): IRSymbol = {
-    atom match
-      case const: ast.Const => ConstIRSymbol(const, Temp(), semanticAnalysis.lookupConstType(const).get)
-      case local: ast.Local => local
-  }
-
-  private implicit def stringToTemp(name: String): IRSymbol = {
+  private implicit def stringToTemp(name: String): Temp = {
     symbolTable.lookup(name) match {
       case None => semanticAnalysis.globalSymbolTable.lookup(name) match {
         case None => throw new Exception(s"Local $name not found in $functionDecl")
-        case Some(s) => s
+        case Some(s) => s.temp
       }
-      case Some(s) => s
+      case Some(s) => s.temp
     }
   }
 
@@ -76,43 +74,32 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   }
 
   private def makeBlock(label: Label, block: ast.LabelledBlock): Block = {
-    val jumpInstructions: List[Tac] = block.jump match
-      case ast.Ret(value) =>
-        checkType(returnSink.ty, value.ty)
-        List(Move(returnSink, value), Goto(endBlock))
-      case ast.Goto(label) => List(Goto(label))
-      case ast.Branch(test, trueLabel, falseLabel) => List(Branch(test, trueLabel, falseLabel))
+    val jumpInstructions: List[Tac[TacImpl]] = block.jump match
+      case ast.Ret(value) => List(Tac(IndexedSeq(value), returnSink.some, Move), Tac(IndexedSeq.empty, None, Goto(endBlock)))
+      case ast.Goto(label) => List(Tac(IndexedSeq.empty, None, Goto(label)))
+      case ast.Branch(test, trueLabel, falseLabel) => List(Tac(IndexedSeq(test), None, Branch(trueLabel, falseLabel)))
 
     val tacs = block.stmts.foldRight(jumpInstructions) { (instr, list) =>
       instr match
         case ast.Assign(dst, src) => src match
           case expr: ast.BinaryExpr => expr match
             case ast.AddInt(left, right) =>
-              checkType(IntType, dst.ty, left.ty, right.ty)
-              BinaryArith(BinaryArithOp.AddI, dst, left, right) :: list
+              Tac(IndexedSeq(left, right), Some(dst), BinaryArith(BinaryArithOp.AddI)) :: list
             case ast.SubInt(left, right) =>
-              checkType(IntType, dst.ty, left.ty, right.ty)
-              BinaryArith(BinaryArithOp.SubI, dst, left, right) :: list
+              Tac(IndexedSeq(left, right), Some(dst), BinaryArith(BinaryArithOp.SubI)) :: list
             case ast.MulInt(left, right) =>
-              checkType(IntType, dst.ty, left.ty, right.ty)
-              BinaryArith(BinaryArithOp.MulI, dst, left, right) :: list
+              Tac(IndexedSeq(left, right), Some(dst), BinaryArith(BinaryArithOp.MulI)) :: list
             case ast.DivInt(left, right) =>
-              checkType(IntType, dst.ty, left.ty, right.ty)
-              BinaryArith(BinaryArithOp.DivI, dst, left, right) :: list
-          case value: ast.Local => Move(dst, value) :: list
-          case atom: ast.Atom => Move(dst, atom) :: list
+              Tac(IndexedSeq(left, right), Some(dst), BinaryArith(BinaryArithOp.DivI)) :: list
+          case value: ast.Local => Tac(IndexedSeq(value), Some(dst), Move) :: list
           case ast.Call(fn, args) =>
-            Call(dst, fn.name, args.map(atomToTemp)) :: list
+            Tac(IndexedSeq.from(args.map(localToTemp)), Some(dst), Call(fn.name)) :: list
           case ast.ArrayAccess(offset, from) => ???
         case ast.AssignElement(dst, src) => ???
     }
     Block(label, tacs)
   }
 
-  private def makeUndefinedDeclarationList(): List[Tac] = functionDecl.block.declarations.map(decl =>
-    val symbol = symbolTable.lookup(decl.local.name).get
-    Move(symbol, ConstIRSymbol(ast.ConstUndefined(decl.ty), Temp(), symbol.ty)))
-
-  def makeInfo: FunctionInfo = FunctionInfo(functionDecl, returnSink, labelMap, labelSymbolMap, startBlock, endBlock, symbolTable, graph)
+  def makeInfo: FunctionInfo = FunctionInfo(functionDecl, returnSink, labelMap, labelSymbolMap, startBlock, endBlock, symbolTable, graph, tempMap)
 
 }

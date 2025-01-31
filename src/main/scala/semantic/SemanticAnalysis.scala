@@ -17,6 +17,7 @@ private type SemanticAnalysisState[A] = StateT[PartialEither, SemanticAnalysisIn
 
 case class SemanticAnalysisInfo(globalSymbolTable: GlobalSymbolTable = GlobalSymbolTable(),
                                 constMap: Map[Const, ConstIRSymbol] = Map.empty,
+                                constTempMap: Map[Temp, ConstIRSymbol] = Map.empty,
                                 programUnitMap: Map[String, ProgramUnit],
                                 typeSymbolTable: TypeSymbolTable = TypeSymbolTable()) {
   def lookupValueType(valueType: ValueType): Option[Type] = valueType match
@@ -34,7 +35,7 @@ case class SemanticAnalysisInfo(globalSymbolTable: GlobalSymbolTable = GlobalSym
       case ast.ConstString(_) => PointerType(() => CharType).pure
       case ast.ConstChar(_) => CharType.pure
       case ast.ConstUnit => UnitType.pure
-      case ast.ConstUndefined(valueType) => lookupValueType(valueType)
+      case ast.ConstUndefined => UndefinedType.pure
   }
 }
 
@@ -48,7 +49,7 @@ object SemanticAnalysis {
       case ast.ConstString(_) => PointerType(() => CharType).pure
       case ast.ConstChar(_) => CharType.pure
       case ast.ConstUnit => UnitType.pure
-      case ast.ConstUndefined(valueType) => translateValueType(valueType, Set.empty)
+      case ast.ConstUndefined => UndefinedType.pure
   }
   private def fillDeclaration[F[_] : Monad](name: String, visited: Set[String])
                                            (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Type] = {
@@ -70,7 +71,8 @@ object SemanticAnalysis {
       resultSymbol <- maybeSymbol match {
         case None =>
           val newConst = ConstIRSymbol(value, Temp(), constTy, name)
-          S.modify(info => info.copy(constMap = info.constMap + (value -> newConst))) *> S.monad.pure(newConst)
+          S.modify(info => info.copy(constMap = info.constMap + (value -> newConst), constTempMap = info.constTempMap + (newConst.temp -> newConst))) *>
+            S.monad.pure(newConst)
         case Some(v) => S.monad.pure(v)
       }
     yield resultSymbol
@@ -152,6 +154,8 @@ object SemanticAnalysis {
 
   private def fillDeclarations[F[_] : Monad](program: Program)
                                             (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Unit] =
+    getOrAddConst(ast.ConstUnit, Some("$unit"))
+    getOrAddConst(ast.ConstUndefined, Some("$undefined"))
     program.lines.traverse_(fillUnitDeclaration("*PROGRAM*", _, Set.empty))
 
   def apply(program: Program): PartialEither[SemanticAnalysisInfo] = {
