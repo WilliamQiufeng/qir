@@ -5,8 +5,7 @@ import semantic.SemanticAnalysisInfo
 
 trait FunctionIR
 
-trait CompilerContext {
-  val semanticAnalysisInfo: SemanticAnalysisInfo
+case class CompilerContext(semanticAnalysisInfo: SemanticAnalysisInfo) {
 }
 
 type FunctionPassResult[A] = Either[IRError, A]
