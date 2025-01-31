@@ -28,6 +28,7 @@ case class DisjointSetUnion[T] private(parent: Map[T, T], size: Map[T, Int]) {
     }
   }
 }
+
 object DisjointSetUnion {
   def empty[T]: DisjointSetUnion[T] = DisjointSetUnion(Map.empty, Map.empty)
 }

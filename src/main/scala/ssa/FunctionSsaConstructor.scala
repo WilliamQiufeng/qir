@@ -1,12 +1,11 @@
 package ssa
 
 import cats.data.State
-import dag.*
-import scalax.collection.immutable.Graph as ImmutableGraph
-import semantic.{IRSymbol, SsaDerivedSymbol, SsaNormalSymbol, SsaRootSymbol, SsaSymbol, Temp}
-import tac.{Block, Phi}
 import cats.implicits.*
 import common.{CompilerContext, FunctionPass, FunctionPassResult}
+import dag.*
+import scalax.collection.immutable.Graph as ImmutableGraph
+import semantic.*
 import tac.*
 import util.graph.Dominance.*
 

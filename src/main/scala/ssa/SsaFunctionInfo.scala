@@ -1,4 +1,5 @@
 package ssa
+
 import ast.{ConcreteFnDecl, LabelValue}
 import common.FunctionIR
 import scalax.collection.immutable.Graph
@@ -15,5 +16,5 @@ case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
                            flowGraph: Graph[Label, LabelEdge],
                            tempMap: Map[Temp, SsaSymbol]
                           ) extends FunctionIR {
-  
+
 }

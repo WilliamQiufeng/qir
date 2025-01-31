@@ -1,9 +1,9 @@
 package util.graph
 
 import scalax.collection.edges.DiEdge
-import scalax.collection.{AnyGraph, GraphLike}
 import scalax.collection.generic.Edge
 import scalax.collection.immutable.Graph
+import scalax.collection.{AnyGraph, GraphLike}
 import util.graph.Dominance.DominanceFrontierClosureMaps.DominanceFrontierClosureMap
 import util.graph.Dominance.DominanceFrontierMaps.DominanceFrontierMap
 import util.graph.Dominance.DominationMaps.DominationMap

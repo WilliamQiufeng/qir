@@ -9,6 +9,7 @@ object FixedPoint {
 
   trait WithFixed[+T <: WithFixed[T]] {
     val fixed: Boolean
+
     def resetFixed: T
   }
 

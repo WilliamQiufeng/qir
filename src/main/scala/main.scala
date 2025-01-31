@@ -30,11 +30,11 @@ def hi(): Unit = {
             println(res.symbolTable)
             println(res.graph.asDot(x => ssaFunctionInfo.labelMap(x).toStringMapped(ssaFunctionInfo.tempMap)))
             println(ssaFunctionInfo.tempMap)
-//            val ssa = FunctionSsaConstructor(functionInfo).perform
-//            println(ssa.flowGraph.asDot)
-//            res.symbolTable.values.foreach(s =>
-//              println(s"$s: uses:${s.uses}")
-//            )
+          //            val ssa = FunctionSsaConstructor(functionInfo).perform
+          //            println(ssa.flowGraph.asDot)
+          //            res.symbolTable.values.foreach(s =>
+          //              println(s"$s: uses:${s.uses}")
+          //            )
           case _ =>
       }
 }

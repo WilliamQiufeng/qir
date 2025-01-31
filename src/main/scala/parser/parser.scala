@@ -2,9 +2,8 @@ import ast.*
 import parser.lexer.*
 import parser.lexer.implicits.implicitSymbol
 import parsley.Parsley
-import parsley.Parsley.{atomic, many, pure, some}
-import parsley.combinator.{option, sepEndBy}
-import parsley.expr.chain
+import parsley.Parsley.{atomic, many, some}
+import parsley.combinator.sepEndBy
 
 package object parser {
   lazy val block: Parsley[Block] = Block(many(declaration), many(labelledBlock))

@@ -1,7 +1,7 @@
 package tac
 
-import semantic.Temp
 import cats.syntax.all.*
+import semantic.Temp
 
 case class Tac[Impl <: TacImpl](sources: IndexedSeq[Temp], definition: Option[Temp], impl: Impl) {
   override def toString: String = toStringNamed(x => x)

@@ -1,7 +1,7 @@
 package util.graph
 
-import scalax.collection.{AnyGraph, GraphLike}
 import scalax.collection.generic.Edge
+import scalax.collection.{AnyGraph, GraphLike}
 
 import scala.collection.mutable
 

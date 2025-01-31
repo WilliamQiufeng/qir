@@ -38,7 +38,7 @@ object lexer {
     )
   )
   private val lexer = new Lexer(desc)
-  
+
   val LABEL_ID: Parsley[String] = lexer.lexeme.names.identifier(Basic(_ == '@'))
   val VAR_ID: Parsley[String] = lexer.lexeme.names.identifier(Basic(_ == '$'))
   val STRUCT_ID: Parsley[String] = lexer.lexeme.names.identifier(Basic(_ == '#'))

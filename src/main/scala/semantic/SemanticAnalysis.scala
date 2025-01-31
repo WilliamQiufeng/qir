@@ -1,15 +1,15 @@
 package semantic
 
-import cats.syntax.all.*
-import cats.syntax.alternative
 import ast.*
-import cats.{Alternative, Applicative, Monad}
 import cats.data.StateT.pure
 import cats.data.{EitherT, State, StateT}
+import cats.mtl.Handle.handleStateT
 import cats.mtl.{Handle, Raise, Stateful}
+import cats.syntax.all.*
+import cats.syntax.alternative
+import cats.{Alternative, Applicative, Monad}
 
 import scala.collection.mutable
-import cats.mtl.Handle.handleStateT
 
 private type PartialEither[T] = Either[SemanticError, T]
 private type PartialState[T] = State[SemanticAnalysisInfo, T]
@@ -41,8 +41,8 @@ case class SemanticAnalysisInfo(globalSymbolTable: GlobalSymbolTable = GlobalSym
 
 object SemanticAnalysis {
 
-  private def getConstType[F[_]: Monad](const: Const)
-                                       (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Type] = {
+  private def getConstType[F[_] : Monad](const: Const)
+                                        (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Type] = {
     const match
       case ast.ConstInteger(_) => IntType.pure
       case ast.ConstFloat(_) => FloatType.pure
@@ -51,6 +51,7 @@ object SemanticAnalysis {
       case ast.ConstUnit => UnitType.pure
       case ast.ConstUndefined => UndefinedType.pure
   }
+
   private def fillDeclaration[F[_] : Monad](name: String, visited: Set[String])
                                            (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Type] = {
     if (visited.contains(name))
@@ -89,7 +90,7 @@ object SemanticAnalysis {
     yield resultSymbol
 
   private def getOrAddType[F[_] : Monad](name: String, symbol: => TypeIRSymbol)
-                                          (implicit S: Stateful[F, SemanticAnalysisInfo]): F[IRSymbol] =
+                                        (implicit S: Stateful[F, SemanticAnalysisInfo]): F[IRSymbol] =
     for
       maybeSymbol <- S.inspect(_.typeSymbolTable.lookup(name))
       resultSymbol <- maybeSymbol match {

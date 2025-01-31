@@ -32,7 +32,9 @@ sealed trait SsaRootSymbol extends SsaSymbol {
 case class SsaNormalSymbol(temp: Temp, ty: Type,
                            debugName: Option[String] = None, undefined: Boolean = false) extends SsaRootSymbol {
   override def toString = s"${debugName.mkString}($temp)"
+
   override def origin: SsaRootSymbol = this
+
   var uses: Set[BlockTac] = Set.empty
 }
 
@@ -52,6 +54,7 @@ case class ConstIRSymbol(const: ast.Const,
   override def toString = s"$const($temp)"
 
   override val undefined: Boolean = false
+
   override def origin: SsaRootSymbol = this
 }
 
@@ -104,6 +107,7 @@ object StructSymbolTable {
 
 case class FunctionSymbolTable(symbolMap: Map[String, NormalIRSymbol] = Map.empty) extends HashMapSymbolTable[NormalIRSymbol, FunctionSymbolTable] {
   override val map: Map[String, NormalIRSymbol] = symbolMap
+
   override def insert(name: String, symbol: NormalIRSymbol): FunctionSymbolTable = {
     FunctionSymbolTable(map.updated(name, symbol))
   }
@@ -113,6 +117,7 @@ case class FunctionSymbolTable(symbolMap: Map[String, NormalIRSymbol] = Map.empt
 
 case class GlobalSymbolTable(symbolMap: Map[String, IRSymbol] = Map.empty) extends HashMapSymbolTable[IRSymbol, GlobalSymbolTable] {
   override val map: Map[String, IRSymbol] = symbolMap
+
   override def insert(name: String, symbol: IRSymbol): GlobalSymbolTable = {
     GlobalSymbolTable(map.updated(name, symbol))
   }
@@ -122,6 +127,7 @@ case class GlobalSymbolTable(symbolMap: Map[String, IRSymbol] = Map.empty) exten
 
 case class TypeSymbolTable(symbolMap: Map[String, TypeIRSymbol] = Map.empty) extends HashMapSymbolTable[TypeIRSymbol, TypeSymbolTable] {
   override val map: Map[String, TypeIRSymbol] = symbolMap
+
   override def insert(name: String, symbol: TypeIRSymbol): TypeSymbolTable = {
     TypeSymbolTable(map.updated(name, symbol))
   }
