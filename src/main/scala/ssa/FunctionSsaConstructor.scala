@@ -1,10 +1,8 @@
 package ssa
 
-import cats.data.State
-import cats.implicits.*
+import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId}
 import common.{CompilerContext, FunctionPass, FunctionPassResult}
 import dag.*
-import scalax.collection.immutable.Graph as ImmutableGraph
 import semantic.*
 import tac.*
 import util.graph.Dominance.*

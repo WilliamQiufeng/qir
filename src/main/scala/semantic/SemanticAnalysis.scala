@@ -1,15 +1,12 @@
 package semantic
 
 import ast.*
-import cats.data.StateT.pure
-import cats.data.{EitherT, State, StateT}
+import cats.Monad
+import cats.data.{State, StateT}
 import cats.mtl.Handle.handleStateT
 import cats.mtl.{Handle, Raise, Stateful}
-import cats.syntax.all.*
-import cats.syntax.alternative
-import cats.{Alternative, Applicative, Monad}
-
-import scala.collection.mutable
+import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId}
+import cats.syntax.all.{toFlatMapOps, toFunctorOps, catsSyntaxApplyOps, toTraverseOps, toFoldableOps}
 
 private type PartialEither[T] = Either[SemanticError, T]
 private type PartialState[T] = State[SemanticAnalysisInfo, T]
