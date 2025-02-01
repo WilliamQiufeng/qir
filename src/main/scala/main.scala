@@ -1,5 +1,6 @@
 import algebra.lattice.Lattice
 import ast.ConcreteFnDecl
+import cats.implicits.catsSyntaxPartialOrder
 import common.{CompilerContext, FunctionPassOps}
 import dag.FunctionDagGenerationPass
 import parsley.Parsley
@@ -19,6 +20,7 @@ def hi(): Unit = {
   {
     implicit val dual: Lattice[Set[Int]] = setBoundedLattice.dual
     println(x ^ y)
+    println(x > y)
   }
   val f = io.Source.fromResource("testCfg32.qir")
   val l = try f.mkString finally f.close()

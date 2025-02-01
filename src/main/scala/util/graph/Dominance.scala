@@ -1,7 +1,7 @@
 package util.graph
 
 import scalax.collection.edges.DiEdge
-import scalax.collection.generic.Edge
+import scalax.collection.generic.{AnyEdge, Edge}
 import scalax.collection.immutable.Graph
 import scalax.collection.{AnyGraph, GraphLike}
 import util.graph.Dominance.DominanceFrontierClosureMaps.DominanceFrontierClosureMap
@@ -66,7 +66,7 @@ object Dominance {
                               dominanceFrontierClosureMap: DominanceFrontierClosureMap[T],
                               dominationTree: Graph[T, DiEdge[T]])
 
-  extension [N, E <: Edge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[N, E, CC]) {
+  extension [N, E <: AnyEdge[N], CC[X, Y <: Edge[X]] <: GraphLike[X, Y, CC] with AnyGraph[X, Y]](g: GraphLike[N, E, CC]) {
     private def calculateDominatorsFold(dominatorCalculationState: SetMapFixedPointState[N], curBlock: g.NodeT): SetMapFixedPointState[N] = {
       val predDoms = curBlock.diPredecessors.map(dominatorCalculationState.value(_))
       val intersection = if predDoms.isEmpty then Set.empty else predDoms.foldLeft(predDoms.head)(_.intersect(_))
@@ -79,7 +79,7 @@ object Dominance {
       val initialMap: Map[N, Set[N]] = Map.from(nodeSet.map(b => b -> (if b == startBlock then Set(b) else nodeSet)))
 
       val res: SetMapFixedPointState[N] = MapFixedPointState(initialMap, false)
-        .iterateTillFixed(x => g.traverseBfsFold(g get startBlock)(x)(calculateDominatorsFold))
+        .iterateTillFixed(x => g.traverseBfsFold(g get startBlock, x)(calculateDominatorsFold))
       DominationMap(res.value)
     }
     def calculateIDom(startBlock: N): ImmediateDominationMap[N] =
