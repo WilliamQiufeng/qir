@@ -6,12 +6,18 @@ import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
 import ssa.{FunctionSsaConstructor, FunctionSsaPass, SsaConstructionPass}
 import tac.asDot
+import util.lattice.{Bottom, Constant, Normal, Top}
 
 
 val hello: Parsley[Unit] = ('h' ~> ("ello" | "i") ~> " world!").void
 
 @main
 def hi(): Unit = {
+  val x = Top
+  println(x)
+  println(x ^ Bottom)
+  println(x ^ Normal(Constant(3)))
+  println(Normal(Constant(2)) ^ Normal(Constant(3)))
   val f = io.Source.fromResource("testCfg32.qir")
   val l = try f.mkString finally f.close()
   println(l)
