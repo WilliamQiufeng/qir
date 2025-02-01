@@ -1,4 +1,4 @@
-package util.lattice
+package util.lattices
 
 trait PartiallyOrdered[+T <: PartiallyOrdered[T]] {
   this: T =>
