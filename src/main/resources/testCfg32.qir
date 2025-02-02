@@ -1,10 +1,11 @@
-const $1 = 1
-const $0 = 0
+
 
 fn @g(): Int
     declare $x: Int
     declare $y: Int
     declare $tmp: Int
+    const $1 = 1
+    const $0 = 0
     @A: branch $1 @B @C
     @B: $y = $0
         $x = $0

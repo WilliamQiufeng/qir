@@ -6,7 +6,7 @@ import parsley.Parsley.{atomic, many, some}
 import parsley.combinator.sepEndBy
 
 package object parser {
-  lazy val block: Parsley[Block] = Block(many(declaration), many(labelledBlock))
+  lazy val block: Parsley[Block] = Block(many(functionNamedDeclaration), many(labelledBlock))
   lazy val program: Parsley[Program] = fully(Program(some(programUnit)))
   private lazy val valueType: Parsley[ValueType] =
     ("Unit" as TypeUnit)
@@ -28,6 +28,8 @@ package object parser {
       | Branch("branch" ~> local, labelValue, labelValue)
       | Goto("goto" ~> labelValue)
   private lazy val declaration = Declaration("declare" ~> local, ":" ~> valueType)
+  private lazy val functionConstDecl = FunctionConstDecl("const" ~> local, "=" ~> const)
+  private lazy val functionNamedDeclaration = declaration | functionConstDecl
   private lazy val labelledBlock = LabelledBlock(labelValue, ":" ~> many(stmt), jump)
   private lazy val programUnit =
     ConcreteFnDecl("fn" ~> labelValue, parenList(param), ":" ~> valueType, block)

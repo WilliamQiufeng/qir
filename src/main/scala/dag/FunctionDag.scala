@@ -1,10 +1,11 @@
 package dag
 
-import cats.implicits.*
 import common.{CompilerContext, FunctionPass, FunctionPassResult}
 import scalax.collection.immutable.Graph
 import semantic.*
 import tac.*
+import cats.syntax.all.catsSyntaxOptionId
+import cats.syntax.all.catsSyntaxApplicativeId
 
 import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
@@ -21,8 +22,17 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   val symbolTable: FunctionSymbolTable = {
     val table = functionDecl.args.foldLeft(FunctionSymbolTable())((table, arg) =>
       table.insert(arg.name, NormalIRSymbol(Temp(), arg.ty, arg.name.some)))
-    functionDecl.block.declarations.foldLeft(table)((table, declaration) =>
-      table.insert(declaration.local.name, NormalIRSymbol(Temp(), declaration.ty, declaration.local.name.some, true)))
+    functionDecl.block.declarations.foldLeft(table)((table, declaration) => declaration match
+      case ast.Declaration(local, ty) => table.insert(
+        local.name,
+        NormalIRSymbol(Temp(), ty, local.name.some, true)
+      )
+
+      case ast.FunctionConstDecl(local, const) => table.insert(
+        local.name,
+        ConstIRSymbol(const, Temp(), semanticAnalysis.lookupConstType(const).get)
+      )
+    )
   }
   private val tempMap: Map[Temp, IRSymbol] = symbolTable.map.map(p => p._2.temp -> p._2) ++ semanticAnalysis.constTempMap +
     (returnSink -> NormalIRSymbol(returnSink, functionDecl.retTy, "%ret".some))

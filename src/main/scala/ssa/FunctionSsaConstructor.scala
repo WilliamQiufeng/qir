@@ -53,7 +53,11 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
   rename(functionInfo.startBlock)
   for (k, v) <- functionInfo.tempMap do
     if !newTempMap.contains(k) then
-      newTempMap += k -> SsaNormalSymbol(v.temp, v.ty, v.debugName, v.undefined)
+      newTempMap +=
+        k -> (v match
+          case c: ConstIRSymbol => c
+          case _ => SsaNormalSymbol(v.temp, v.ty, v.debugName, v.undefined)
+          )
 
   val result: SsaFunctionInfo =
     SsaFunctionInfo(functionInfo.functionDecl, functionInfo.returnSink, labelMap.toMap, functionInfo.labelSymbolMap,

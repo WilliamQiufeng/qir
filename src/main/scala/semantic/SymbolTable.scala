@@ -105,10 +105,10 @@ object StructSymbolTable {
     StructSymbolTable(types map (x => NormalIRSymbol(Temp(), x)))
 }
 
-case class FunctionSymbolTable(symbolMap: Map[String, NormalIRSymbol] = Map.empty) extends HashMapSymbolTable[NormalIRSymbol, FunctionSymbolTable] {
-  override val map: Map[String, NormalIRSymbol] = symbolMap
+case class FunctionSymbolTable(symbolMap: Map[String, IRSymbol] = Map.empty) extends HashMapSymbolTable[IRSymbol, FunctionSymbolTable] {
+  override val map: Map[String, IRSymbol] = symbolMap
 
-  override def insert(name: String, symbol: NormalIRSymbol): FunctionSymbolTable = {
+  override def insert(name: String, symbol: IRSymbol): FunctionSymbolTable = {
     FunctionSymbolTable(map.updated(name, symbol))
   }
 

@@ -37,7 +37,7 @@ package object ast {
 
   case class Param(name: String, ty: ValueType)
 
-  case class Block(declarations: List[Declaration], labelledBlocks: List[LabelledBlock])
+  case class Block(declarations: List[FunctionNamedDeclaration], labelledBlocks: List[LabelledBlock])
 
   case class LabelValue(name: String)
 
@@ -61,7 +61,11 @@ package object ast {
 
   case class AssignElement(dst: ArrayAccess, src: Local) extends Stmt
 
-  case class Declaration(local: Local, ty: ValueType)
+  sealed trait FunctionNamedDeclaration
+
+  case class Declaration(local: Local, ty: ValueType) extends FunctionNamedDeclaration
+
+  case class FunctionConstDecl(local: Local, const: Const) extends FunctionNamedDeclaration
 
   sealed trait Jump
 
@@ -97,7 +101,7 @@ package object ast {
 
   object Param extends ParserBridge2[String, ValueType, Param]
 
-  object Block extends ParserBridge2[List[Declaration], List[LabelledBlock], Block]
+  object Block extends ParserBridge2[List[FunctionNamedDeclaration], List[LabelledBlock], Block]
 
   object LabelValue extends ParserBridge1[String, LabelValue]
 
@@ -129,7 +133,9 @@ package object ast {
 
   object AssignElement extends ParserBridge2[ArrayAccess, Local, Stmt]
 
-  object Declaration extends ParserBridge2[Local, ValueType, Declaration]
+  object Declaration extends ParserBridge2[Local, ValueType, FunctionNamedDeclaration]
+
+  object FunctionConstDecl extends ParserBridge2[Local, Const, FunctionNamedDeclaration]
 
   object Ret extends ParserBridge1[Local, Jump]
 
