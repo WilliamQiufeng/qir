@@ -6,7 +6,8 @@ import dag.FunctionDagGenerationPass
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
-import ssa.SsaConstructionPass
+import ssa.{SsaConstructionPass, SsaGraph}
+import tac.asDot
 import util.lattices.setBoundedLattice
 import util.syntax.LatticeSyntax.MeetOps
 
@@ -46,6 +47,8 @@ def hi(): Unit = {
                   println(value.tempMap)
                   println("Def-Use: ")
                   println(value.defUseToString)
+                  val ssaGraph = SsaGraph.buildGraph(value)
+                  println(ssaGraph.asDot(_.toStringMappedFullTac(value.tempMap)))
             case _ =>
         }
 }
