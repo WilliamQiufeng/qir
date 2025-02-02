@@ -5,9 +5,9 @@ import tac.{Label, Phi, Tac, TacImpl}
 
 import scala.collection.SeqView
 
-case class SsaBlockTac(tac: Tac[TacImpl], block: SsaBlock) {
+case class SsaBlockTac(tac: Tac[TacImpl], label: Label) {
   override def toString: String = toStringMapped(x => x)
-  def toStringMapped[T](mapping: Temp => T): String = s"(${tac.toStringNamed(mapping)} at ${block.label})"
+  def toStringMapped[T](mapping: Temp => T): String = s"(${tac.impl.toString} at $label)"
 }
 
 case class SsaBlock(label: Label, phis: List[Tac[Phi]], trailingTacs: IndexedSeq[Tac[TacImpl]]) {

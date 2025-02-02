@@ -15,11 +15,11 @@ case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
                            symbolTable: FunctionSymbolTable,
                            flowGraph: Graph[Label, LabelEdge],
                            tempMap: Map[Temp, SsaSymbol],
-                           defUse: Map[Temp, Set[SsaBlockTac]]
+                           defUse: Map[Temp, DefUse]
                           ) extends FunctionIR {
   def toDot: String = flowGraph.asDot(x => labelMap(x).toStringMapped(tempMap))
 
   def defUseToString: String = defUse.view.map((k, v) =>
-    tempMap(k).toString + ": " + v.map(_.toStringMapped(tempMap)).mkString(",")
+    tempMap(k).toString + ": " + v
   ).mkString("DefUse:\n  ", "\n  ", "")
 }

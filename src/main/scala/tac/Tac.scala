@@ -25,7 +25,7 @@ case class BinaryArith(op: BinaryArithOp) extends TacImpl {
 }
 
 case object Move extends TacImpl {
-  override def toString = s""
+  override def toString = s"move"
 }
 
 case class Call(fnName: String) extends TacImpl {

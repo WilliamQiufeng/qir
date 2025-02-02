@@ -133,12 +133,18 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
     symbolsOverwritten.foreach(s => getStack(s.temp).pop())
   }
 
-  private def findDefUse: Map[Temp, Set[SsaBlockTac]] = {
-    val res = mutable.HashMap.empty[Temp, mutable.Set[SsaBlockTac]]
+  private def findDefUse: Map[Temp, DefUse] = {
+    val useChains = mutable.HashMap.empty[Temp, mutable.Set[SsaBlockTac]]
+    val defs = mutable.HashMap.empty[Temp, SsaBlockTac]
+
     for block <- labelMap.values
         tac <- block.tacs
         use <- tac.sources do
-      res.getOrElseUpdate(use, mutable.Set.empty[SsaBlockTac]).add(SsaBlockTac(tac, block))
-    res.map((k, v) => k -> v.toSet).toMap
+      useChains.getOrElseUpdate(use, mutable.Set.empty[SsaBlockTac]).add(SsaBlockTac(tac, block.label))
+      tac.definition.foreach(defs.update(_, SsaBlockTac(tac, block.label)))
+
+    newTempMap.keys.map(key =>
+      key -> DefUse(defs.get(key), useChains.getOrElse(key, mutable.Set.empty).toList)
+    ).toMap
   }
 }
