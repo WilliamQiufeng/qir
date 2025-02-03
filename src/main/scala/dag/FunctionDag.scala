@@ -30,7 +30,7 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
 
       case ast.FunctionConstDecl(local, const) => table.insert(
         local.name,
-        ConstIRSymbol(const, Temp(), semanticAnalysis.lookupConstType(const).get)
+        ConstIRSymbol(const, Temp(), semantic.lookupConstType[Option](const).get)
       )
     )
   }

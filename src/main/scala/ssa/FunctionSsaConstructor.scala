@@ -59,10 +59,11 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
           case _ => SsaNormalSymbol(v.temp, v.ty, v.debugName, v.undefined)
           )
 
-  val result: SsaFunctionInfo =
-    SsaFunctionInfo(functionInfo.functionDecl, functionInfo.returnSink, labelMap.toMap, functionInfo.labelSymbolMap,
-      functionInfo.startBlock, functionInfo.endBlock, functionInfo.symbolTable, functionInfo.flowGraph, newTempMap.toMap,
-      findDefUse)
+  val result: SsaFunctionInfo = {
+    val newLabelMap = labelMap.toMap
+    SsaFunctionInfo(functionInfo.functionDecl, findNewReturnSink, newLabelMap, functionInfo.labelSymbolMap,
+      functionInfo.startBlock, functionInfo.endBlock, functionInfo.symbolTable, functionInfo.flowGraph, newTempMap.toMap)
+  }
 
   private def insertPhi(): Unit = {
     for x <- globals do
@@ -133,18 +134,9 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
     symbolsOverwritten.foreach(s => getStack(s.temp).pop())
   }
 
-  private def findDefUse: Map[Temp, DefUse] = {
-    val useChains = mutable.HashMap.empty[Temp, mutable.Set[SsaBlockTac]]
-    val defs = mutable.HashMap.empty[Temp, SsaBlockTac]
-
-    for block <- labelMap.values
-        tac <- block.tacs
-        use <- tac.sources do
-      useChains.getOrElseUpdate(use, mutable.Set.empty[SsaBlockTac]).add(SsaBlockTac(tac, block.label))
-      tac.definition.foreach(defs.update(_, SsaBlockTac(tac, block.label)))
-
-    newTempMap.keys.map(key =>
-      key -> DefUse(defs.get(key), useChains.getOrElse(key, mutable.Set.empty).toList)
-    ).toMap
-  }
+  private def findNewReturnSink: Temp = labelMap(functionInfo.endBlock).trailingTacs.view.flatMap(
+    t => t.impl match
+      case Ret => Some(t.sources.head)
+      case _ => None
+  ).head
 }

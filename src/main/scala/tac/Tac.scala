@@ -3,8 +3,12 @@ package tac
 import cats.syntax.all.*
 import semantic.Temp
 
-case class Tac[Impl <: TacImpl](sources: IndexedSeq[Temp], definition: Option[Temp], impl: Impl) {
+case class TacExpression[+Impl <: TacImpl](sources: IndexedSeq[Temp], impl: Impl)
+
+case class Tac[+Impl <: TacImpl](sources: IndexedSeq[Temp], definition: Option[Temp], impl: Impl) {
   override def toString: String = toStringNamed(x => x)
+
+  lazy val expr: TacExpression[Impl] = TacExpression(sources, impl)
 
   def toStringNamed[T](mapping: Temp => T): String = s"${definition.map(mapping).mkString} <- $impl ${sources.map(mapping).mkString(", ")}"
 }

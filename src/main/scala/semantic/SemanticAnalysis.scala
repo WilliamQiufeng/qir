@@ -24,30 +24,19 @@ case class SemanticAnalysisInfo(globalSymbolTable: GlobalSymbolTable = GlobalSym
     case TypeInt => IntType.some
     case TypeChar => CharType.some
     case TypeFloat => FloatType.some
+}
 
-  def lookupConstType(const: Const): Option[Type] = {
-    const match
-      case ast.ConstInteger(_) => IntType.pure
-      case ast.ConstFloat(_) => FloatType.pure
-      case ast.ConstString(_) => PointerType(() => CharType).pure
-      case ast.ConstChar(_) => CharType.pure
-      case ast.ConstUnit => UnitType.pure
-      case ast.ConstUndefined => UndefinedType.pure
-  }
+def lookupConstType[F[_]: Monad](const: Const): F[Type] = {
+  const match
+    case ast.ConstInteger(_) => IntType.pure
+    case ast.ConstFloat(_) => FloatType.pure
+    case ast.ConstString(_) => PointerType(() => CharType).pure
+    case ast.ConstChar(_) => CharType.pure
+    case ast.ConstUnit => UnitType.pure
+    case ast.ConstUndefined => UndefinedType.pure
 }
 
 object SemanticAnalysis {
-
-  private def getConstType[F[_] : Monad](const: Const)
-                                        (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Type] = {
-    const match
-      case ast.ConstInteger(_) => IntType.pure
-      case ast.ConstFloat(_) => FloatType.pure
-      case ast.ConstString(_) => PointerType(() => CharType).pure
-      case ast.ConstChar(_) => CharType.pure
-      case ast.ConstUnit => UnitType.pure
-      case ast.ConstUndefined => UndefinedType.pure
-  }
 
   private def fillDeclaration[F[_] : Monad](name: String, visited: Set[String])
                                            (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[Type] = {
@@ -65,7 +54,7 @@ object SemanticAnalysis {
                                          (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[ConstIRSymbol] =
     for
       maybeSymbol <- S.inspect(_.constMap.get(value))
-      constTy <- getConstType(value)
+      constTy <- lookupConstType(value)
       resultSymbol <- maybeSymbol match {
         case None =>
           val newConst = ConstIRSymbol(value, Temp(), constTy, name)

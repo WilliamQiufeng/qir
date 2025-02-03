@@ -6,7 +6,7 @@ import dag.FunctionDagGenerationPass
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
-import ssa.{SsaConstructionPass, SsaGraph}
+import ssa.{SCCPPass, SparseConditionalConstantPropagation, SsaConstructionPass, SsaGraph}
 import tac.asDot
 import util.lattices.setBoundedLattice
 import util.syntax.LatticeSyntax.MeetOps
@@ -23,12 +23,12 @@ def hi(): Unit = {
     println(x ^ y)
     println(x > y)
   }
-  val f = io.Source.fromResource("testCfg32.qir")
+  val f = io.Source.fromResource("testSCCP1.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)
   println(ast)
-  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass
+  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen SCCPPass
 
   for i <- 0 to 0 do
     SemanticAnalysis(ast.get) match
@@ -41,14 +41,15 @@ def hi(): Unit = {
               val res = time(pipeline(d)(CompilerContext(info)))
               res match
                 case Left(value) => println(value)
-                case Right(value) =>
-                  println(value.symbolTable)
-                  println(value.toDot)
-                  println(value.tempMap)
+                case Right(ssaFunctionInfo) =>
+                  println(ssaFunctionInfo.symbolTable)
+                  println(ssaFunctionInfo.toDot)
+                  println(ssaFunctionInfo.tempMap)
                   println("Def-Use: ")
-                  println(value.defUseToString)
-                  val ssaGraph = SsaGraph.buildGraph(value)
-                  println(ssaGraph.asDot(_.toStringMappedFullTac(value.tempMap)))
+                  println(ssaFunctionInfo.defUseToString)
+                  println(ssaFunctionInfo.ssaGraph.asDot(_.toStringMappedFullTac(ssaFunctionInfo.tempMap)))
+//                  val s = SparseConditionalConstantPropagation(ssaFunctionInfo).result
+//                  println(s.value.mkString("\n"))
             case _ =>
         }
 }

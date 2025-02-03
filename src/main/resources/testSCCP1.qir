@@ -1,0 +1,15 @@
+fn @test(): Unit
+    declare $i : Int
+    declare $j : Int
+    declare $k : Int
+    const $17 = 17
+    const $10 = 10
+    const $20 = 20
+    @A: $i = $17
+        branch $i @B @C
+    @B: $j = $10
+        goto @D
+    @C: $j = $20
+        goto @D
+    @D: $k = muli $j $17
+        ret $k

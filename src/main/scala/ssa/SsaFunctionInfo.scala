@@ -4,7 +4,10 @@ import ast.{ConcreteFnDecl, LabelValue}
 import common.FunctionIR
 import scalax.collection.immutable.Graph
 import semantic.{FunctionSymbolTable, SsaSymbol, Temp}
+import ssa.SsaGraph.GraphType
 import tac.{Label, LabelEdge, asDot}
+
+import scala.collection.mutable
 
 case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
                            returnSink: Temp,
@@ -14,10 +17,26 @@ case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
                            endBlock: Label,
                            symbolTable: FunctionSymbolTable,
                            flowGraph: Graph[Label, LabelEdge],
-                           tempMap: Map[Temp, SsaSymbol],
-                           defUse: Map[Temp, DefUse]
+                           tempMap: Map[Temp, SsaSymbol]
                           ) extends FunctionIR {
   def toDot: String = flowGraph.asDot(x => labelMap(x).toStringMapped(tempMap))
+
+  lazy val defUse: Map[Temp, DefUse] = {
+    val useChains = mutable.HashMap.empty[Temp, mutable.Set[SsaBlockTac]]
+    val defs = mutable.HashMap.empty[Temp, SsaBlockTac]
+
+    for block <- labelMap.values
+        tac <- block.tacs
+        use <- tac.sources do
+      useChains.getOrElseUpdate(use, mutable.Set.empty[SsaBlockTac]).add(SsaBlockTac(tac, block.label))
+      tac.definition.foreach(defs.update(_, SsaBlockTac(tac, block.label)))
+
+    tempMap.keys.map(key =>
+      key -> DefUse(defs.get(key), useChains.getOrElse(key, mutable.Set.empty).toList)
+    ).toMap
+  }
+
+  lazy val ssaGraph: GraphType = SsaGraph.buildGraph(labelMap, defUse)
 
   def defUseToString: String = defUse.view.map((k, v) =>
     tempMap(k).toString + ": " + v

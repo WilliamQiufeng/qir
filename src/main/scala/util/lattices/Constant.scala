@@ -4,7 +4,12 @@ import algebra.lattice.BoundedLattice
 import cats.Eq
 import util.syntax.LatticeSyntax.{JoinOps, MeetOps}
 
-sealed trait ConstantLattice[+T]
+sealed trait ConstantLattice[+T] {
+  def combine[U, R](b: ConstantLattice[U])(f: (T, U) => R): ConstantLattice[R] = (this, b) match {
+    case (ConstantValue(x), ConstantValue(y)) => ConstantValue(f(x, y))
+    case _ => ConstantBottom
+  }
+}
 
 case object ConstantBottom extends ConstantLattice[Nothing]
 
