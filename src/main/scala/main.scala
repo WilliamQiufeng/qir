@@ -6,7 +6,7 @@ import dag.FunctionDagGenerationPass
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
-import ssa.{SCCPPass, SparseConditionalConstantPropagation, SsaConstructionPass, SsaGraph}
+import ssa.{SCCPPass, SsaConstructionPass}
 import tac.asDot
 import util.lattices.setBoundedLattice
 import util.syntax.LatticeSyntax.MeetOps
@@ -23,7 +23,7 @@ def hi(): Unit = {
     println(x ^ y)
     println(x > y)
   }
-  val f = io.Source.fromResource("testSCCP1.qir")
+  val f = io.Source.fromResource("testCfg32.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)

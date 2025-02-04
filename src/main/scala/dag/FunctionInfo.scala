@@ -3,7 +3,7 @@ package dag
 import ast.{ConcreteFnDecl, LabelValue}
 import common.FunctionIR
 import scalax.collection.immutable.Graph
-import semantic.{FunctionSymbolTable, IRSymbol, SemanticAnalysisInfo, Temp}
+import semantic.{FunctionSymbolTable, IRSymbol, Temp}
 import tac.{Block, Label, LabelEdge}
 
 

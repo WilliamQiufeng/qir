@@ -3,7 +3,7 @@ package ssa
 import cats.implicits.toSemigroupKOps
 import common.{CompilerContext, FunctionPass, FunctionPassResult}
 import scalax.collection.immutable.Graph
-import scalax.collection.io.dot.Elem.graph
+
 import semantic.{ConstIRSymbol, SsaSymbol, Temp}
 import ssa.SsaGraph.GraphType
 import tac.*

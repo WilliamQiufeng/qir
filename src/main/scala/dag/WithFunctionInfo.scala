@@ -1,9 +1,5 @@
 package dag
 
-import ast.{LabelValue, Local, ValueType}
-import common.CompilerContext
-import semantic.{ConstIRSymbol, IRSymbol, Temp, Type}
-import tac.{Block, Label}
 
 import scala.language.implicitConversions
 

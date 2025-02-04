@@ -1,15 +1,11 @@
 package tac
 
-import scalax.collection.edges.DiEdgeImplicits
-import scalax.collection.generic.{AbstractDiEdge, Edge}
+import scalax.collection.generic.Edge
 import scalax.collection.immutable.Graph
 import scalax.collection.io.dot.*
 import scalax.collection.io.dot.implicits.*
 import scalax.collection.{AnyGraph, GraphLike, immutable as img}
-import tac.{Label, Tac}
 
-import scala.annotation.{tailrec, targetName}
-import scala.collection.mutable
 
 case class BlockTac(tac: Tac[TacImpl], block: Block) {
   override def toString: String = s"$tac in ${block.label}"

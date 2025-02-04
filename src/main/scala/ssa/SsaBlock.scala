@@ -1,7 +1,7 @@
 package ssa
 
-import semantic.Temp
-import tac.{Label, Phi, Tac, TacImpl}
+import semantic.{ConstIRSymbol, SsaSymbol, Temp}
+import tac.{Branch, Goto, Jump, Label, Phi, Ret, Tac, TacImpl}
 
 import scala.collection.SeqView
 
@@ -20,4 +20,17 @@ case class SsaBlock(label: Label, phis: List[Tac[Phi]], trailingTacs: IndexedSeq
   def toStringMapped[T](mapping: Temp => T): String = s"Block $label${tacs.map(_.toStringNamed(mapping)).mkString("{\n  ", "\n  ", "\n}")}"
 
   def self: SsaBlock = this
+
+  def getNextBlockIfEmpty(tempMap: Map[Temp, SsaSymbol]): Option[Label] = {
+    if phis.nonEmpty || trailingTacs.size != 1 then
+      return None
+    trailingTacs.last.impl match
+      case jump: Jump => jump match
+        case Goto(label) => Some(label)
+        case Branch(label1, label2) => tempMap(trailingTacs.last.sources.head) match
+          case ConstIRSymbol(ast.ConstInteger(v), _, _, _) => Some(if v > 0 then label1 else label2)
+          case _ => None
+        case Ret => None
+      case _ => throw new Exception("What")
+  }
 }

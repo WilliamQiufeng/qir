@@ -1,6 +1,6 @@
 package util.graph
 
-import scalax.collection.edges.{DiEdge, DiEdgeImplicits}
+import scalax.collection.edges.DiEdge
 import scalax.collection.generic.{AnyEdge, Edge}
 import scalax.collection.{AnyGraph, GraphLike}
 

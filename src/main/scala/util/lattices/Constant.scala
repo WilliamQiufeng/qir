@@ -1,8 +1,8 @@
 package util.lattices
 
-import algebra.lattice.BoundedLattice
+
 import cats.Eq
-import util.syntax.LatticeSyntax.{JoinOps, MeetOps}
+
 
 sealed trait ConstantLattice[+T] {
   def combine[U, R](b: ConstantLattice[U])(f: (T, U) => R): ConstantLattice[R] = (this, b) match {

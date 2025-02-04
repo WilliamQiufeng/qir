@@ -2,6 +2,22 @@
 <project version="4">
   <component name="ScalaCompilerConfiguration">
     <option name="separateProdTestSources" value="true" />
-    <profile name="sbt 1" modules="qir,qir.main,qir.test" />
+    <profile name="sbt 1" modules="qir" />
+    <profile name="sbt 2" modules="qir.test">
+      <parameters>
+        <parameter value="-Wunused:imports" />
+        <parameter value="-Xsemanticdb" />
+        <parameter value="-semanticdb-target" />
+        <parameter value="D:\IdeaProjects\qir\target\scala-3.3.4\test-meta" />
+      </parameters>
+    </profile>
+    <profile name="sbt 3" modules="qir.main">
+      <parameters>
+        <parameter value="-Wunused:imports" />
+        <parameter value="-Xsemanticdb" />
+        <parameter value="-semanticdb-target" />
+        <parameter value="D:\IdeaProjects\qir\target\scala-3.3.4\meta" />
+      </parameters>
+    </profile>
   </component>
 </project>

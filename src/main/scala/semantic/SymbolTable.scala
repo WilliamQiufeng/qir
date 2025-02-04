@@ -3,7 +3,6 @@ package semantic
 import cats.syntax.all.*
 import tac.BlockTac
 
-import scala.collection.mutable
 
 sealed trait IRSymbol:
   val temp: Temp

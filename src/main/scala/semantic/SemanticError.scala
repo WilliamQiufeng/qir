@@ -1,7 +1,6 @@
 package semantic
 
 import common.IRError
-import semantic.Type
 
 sealed trait SemanticError extends IRError
 
