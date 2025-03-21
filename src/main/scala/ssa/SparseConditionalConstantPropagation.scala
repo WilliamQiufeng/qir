@@ -12,7 +12,7 @@ import util.syntax.LatticeSyntax.MeetOps
 
 import scala.collection.mutable
 
-case object SCCPPass extends FunctionPass[SsaFunctionInfo, SsaFunctionInfo] {
+case object SCCPPass extends FunctionPass[WithSsaFunctionInfo, SsaFunctionInfo] {
   private def replace[Impl <: TacImpl](t: Tac[Impl], mapping: Map[Temp, ConstantLattice[ast.Const]], constMap: Map[ast.Const, Temp]): Option[Tac[Impl]] = {
     if t.definition.flatMap(mapping.get) match
       case Some(ConstantValue(value)) => true
@@ -29,10 +29,11 @@ case object SCCPPass extends FunctionPass[SsaFunctionInfo, SsaFunctionInfo] {
     Some(Tac(sources, t.definition, t.impl))
   }
 
-  override def apply(in: SsaFunctionInfo)(implicit ctx: CompilerContext): FunctionPassResult[SsaFunctionInfo] = {
-    val result = SparseConditionalConstantPropagation(in).result
-    var newSymbolTable = in.symbolTable
-    val newTempMapMut = mutable.Map.from(in.tempMap)
+  override def apply(in: WithSsaFunctionInfo)(implicit ctx: CompilerContext): FunctionPassResult[SsaFunctionInfo] = {
+    val functionInfo = in.functionInfo
+    val result = SparseConditionalConstantPropagation(functionInfo).result
+    var newSymbolTable = functionInfo.symbolTable
+    val newTempMapMut = mutable.Map.from(functionInfo.tempMap)
     val constMapMut = mutable.Map.empty[ast.Const, Temp]
     for (_, lattice) <- result.value do
       lattice match
@@ -44,15 +45,15 @@ case object SCCPPass extends FunctionPass[SsaFunctionInfo, SsaFunctionInfo] {
     val newTempMap = newTempMapMut.toMap
     val constMap = constMapMut.toMap
 
-    val newLabelMap = for (label, block) <- in.labelMap yield
+    val newLabelMap = for (label, block) <- functionInfo.labelMap yield
       label -> SsaBlock(
         label,
         block.phis.flatMap(replace(_, result.value, constMap)),
         block.trailingTacs.flatMap(replace(_, result.value, constMap))
       )
 
-    val newGraph = Graph.from(in.flowGraph.nodes.outerIterable, result.executable)
-    Right(in.copy(
+    val newGraph = Graph.from(functionInfo.flowGraph.nodes.outerIterable, result.executable)
+    Right(functionInfo.copy(
       flowGraph = newGraph,
       tempMap = newTempMap,
       labelMap = newLabelMap,

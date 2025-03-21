@@ -15,8 +15,10 @@ case class FunctionInfo(functionDecl: ConcreteFnDecl,
                         endBlock: Label,
                         symbolTable: FunctionSymbolTable,
                         flowGraph: Graph[Label, LabelEdge],
-                        tempMap: Map[Temp, IRSymbol]
-                       ) extends FunctionIR {
+                        tempMap: Map[Temp, IRSymbol],
+                        header: FunctionHeader
+                       ) extends FunctionIR, WithFunctionInfo {
 
+  override def functionInfo: FunctionInfo = this
 }
 

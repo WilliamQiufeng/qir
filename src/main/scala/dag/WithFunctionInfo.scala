@@ -4,7 +4,7 @@ package dag
 import scala.language.implicitConversions
 
 trait WithFunctionInfo {
-  val functionInfo: FunctionInfo
+  def functionInfo: FunctionInfo
   //  implicit def valueTypeToType(valueType: ValueType)(implicit ctx: CompilerContext): Type =
   //    ctx.semanticAnalysisInfo.lookupValueType(valueType).get
   //

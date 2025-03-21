@@ -8,7 +8,7 @@
         <parameter value="-Wunused:imports" />
         <parameter value="-Xsemanticdb" />
         <parameter value="-semanticdb-target" />
-        <parameter value="D:\IdeaProjects\qir\target\scala-3.3.4\test-meta" />
+        <parameter value="$PROJECT_DIR$/target/scala-3.3.4/test-meta" />
       </parameters>
     </profile>
     <profile name="sbt 3" modules="qir.main">
@@ -16,7 +16,7 @@
         <parameter value="-Wunused:imports" />
         <parameter value="-Xsemanticdb" />
         <parameter value="-semanticdb-target" />
-        <parameter value="D:\IdeaProjects\qir\target\scala-3.3.4\meta" />
+        <parameter value="$PROJECT_DIR$/target/scala-3.3.4/meta" />
       </parameters>
     </profile>
   </component>

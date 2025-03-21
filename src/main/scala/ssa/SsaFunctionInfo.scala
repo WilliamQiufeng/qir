@@ -2,8 +2,9 @@ package ssa
 
 import ast.{ConcreteFnDecl, LabelValue}
 import common.FunctionIR
+import dag.{FunctionHeader, FunctionInfo, WithFunctionInfo}
 import scalax.collection.immutable.Graph
-import semantic.{FunctionSymbolTable, SsaSymbol, Temp}
+import semantic.{FunctionSymbolTable, SsaNormalSymbol, SsaSymbol, Temp}
 import ssa.SsaGraph.GraphType
 import tac.{Label, LabelEdge, asDot}
 
@@ -17,8 +18,9 @@ case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
                            endBlock: Label,
                            symbolTable: FunctionSymbolTable,
                            flowGraph: Graph[Label, LabelEdge],
-                           tempMap: Map[Temp, SsaSymbol]
-                          ) extends FunctionIR {
+                           tempMap: Map[Temp, SsaSymbol],
+                           header: FunctionHeader
+                          ) extends FunctionIR, WithSsaFunctionInfo {
   def toDot: String = flowGraph.asDot(x => labelMap(x).toStringMapped(tempMap))
 
   lazy val defUse: Map[Temp, DefUse] = {
@@ -41,4 +43,6 @@ case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
   def defUseToString: String = defUse.view.map((k, v) =>
     tempMap(k).toString + ": " + v
   ).mkString("DefUse:\n  ", "\n  ", "")
+
+  override def functionInfo: SsaFunctionInfo = this
 }

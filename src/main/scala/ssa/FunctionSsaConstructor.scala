@@ -62,7 +62,8 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
   val result: SsaFunctionInfo = {
     val newLabelMap = labelMap.toMap
     SsaFunctionInfo(functionInfo.functionDecl, findNewReturnSink, newLabelMap, functionInfo.labelSymbolMap,
-      functionInfo.startBlock, functionInfo.endBlock, functionInfo.symbolTable, functionInfo.flowGraph, newTempMap.toMap)
+      functionInfo.startBlock, functionInfo.endBlock, functionInfo.symbolTable, functionInfo.flowGraph, newTempMap.toMap,
+      functionInfo.header)
   }
 
   private def insertPhi(): Unit = {

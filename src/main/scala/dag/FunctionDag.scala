@@ -6,6 +6,7 @@ import semantic.*
 import tac.*
 import cats.syntax.all.catsSyntaxOptionId
 import cats.syntax.all.catsSyntaxApplicativeId
+import mem.CDecl
 
 import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
@@ -19,9 +20,10 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   private val returnSink: Temp = Temp()
   private val startBlock: Label = Label()
   private val endBlock: Label = Label()
+  private val arguments: List[Temp] = functionDecl.args.map(_ => Temp())
   val symbolTable: FunctionSymbolTable = {
-    val table = functionDecl.args.foldLeft(FunctionSymbolTable())((table, arg) =>
-      table.insert(arg.name, NormalIRSymbol(Temp(), arg.ty, arg.name.some)))
+    val table = functionDecl.args.zip(arguments).foldLeft(FunctionSymbolTable())((table, arg) =>
+      table.insert(arg._1.name, NormalIRSymbol(arg._2, arg._1.ty, arg._1.name.some)))
     functionDecl.block.declarations.foldLeft(table)((table, declaration) => declaration match
       case ast.Declaration(local, ty) => table.insert(
         local.name,
@@ -110,6 +112,6 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
     Block(label, tacs)
   }
 
-  def makeInfo: FunctionInfo = FunctionInfo(functionDecl, returnSink, labelMap, labelSymbolMap, startBlock, endBlock, symbolTable, graph, tempMap)
-
+  def makeInfo: FunctionInfo = FunctionInfo(functionDecl, returnSink, labelMap, labelSymbolMap, startBlock, endBlock, symbolTable, graph, tempMap,
+    FunctionHeader(Map.empty, CDecl, arguments))
 }
