@@ -1,5 +1,8 @@
 package mem
 
+import dag.FunctionHeader
+import semantic.Temp
+
 sealed trait TempLocation {
   val size: Int
 }
@@ -41,4 +44,6 @@ trait Architecture {
   def stackPointer: Register
 
   def returnRegister: Register
+
+  def allocateArguments(header: FunctionHeader): IndexedSeq[TempLocation]
 }

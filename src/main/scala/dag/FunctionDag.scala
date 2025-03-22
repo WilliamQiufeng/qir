@@ -113,5 +113,5 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   }
 
   def makeInfo: FunctionInfo = FunctionInfo(functionDecl, returnSink, labelMap, labelSymbolMap, startBlock, endBlock, symbolTable, graph, tempMap,
-    FunctionHeader(Map.empty, CDecl, arguments))
+    FunctionHeader(CDecl, arguments))
 }
