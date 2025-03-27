@@ -12,7 +12,7 @@ import scala.collection.mutable
 
 case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
                            returnSink: Temp,
-                           labelMap: Map[Label, SsaBlock],
+                           labelMap: Map[Label, BasicSsaBlock],
                            labelSymbolMap: Map[LabelValue, Label],
                            startBlock: Label,
                            endBlock: Label,

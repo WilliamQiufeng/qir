@@ -38,9 +38,9 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
         )
     res.toMap
   }
-  private val labelMap: mutable.Map[Label, SsaBlock] = mutable.HashMap.from(
+  private val labelMap: mutable.Map[Label, BasicSsaBlock] = mutable.HashMap.from(
     functionInfo.labelMap.map((k, v) =>
-      k -> SsaBlock(v.label, List(), v.tacs.toIndexedSeq)
+      k -> BasicSsaBlock(v.label, List(), v.tacs.toIndexedSeq)
     )
   )
   private val newTempMap: mutable.Map[Temp, SsaSymbol] = mutable.Map.empty

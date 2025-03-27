@@ -2,15 +2,24 @@ package tac
 
 import cats.syntax.all.*
 import semantic.Temp
+import util.ToStringMapped
 
 case class TacExpression[+Impl <: TacImpl](sources: IndexedSeq[Temp], impl: Impl)
 
-case class Tac[+Impl <: TacImpl](sources: IndexedSeq[Temp], definition: Option[Temp], impl: Impl) {
-  override def toString: String = toStringNamed(x => x)
+trait SomeTac {
+  def sources: IndexedSeq[Temp]
+  def definition: Option[Temp]
+}
 
+trait Terminator extends SomeTac {
+  def targets: IndexedSeq[Label]
+  final override def definition: Option[Temp] = None
+}
+
+case class Tac[+Impl <: TacImpl](sources: IndexedSeq[Temp], definition: Option[Temp], impl: Impl) extends ToStringMapped[Temp] {
   lazy val expr: TacExpression[Impl] = TacExpression(sources, impl)
 
-  def toStringNamed[T](mapping: Temp => T): String = s"${definition.map(mapping).mkString} <- $impl ${sources.map(mapping).mkString(", ")}"
+  def toStringMapped[T](mapping: Temp => T): String = s"${definition.map(mapping).mkString} <- $impl ${sources.map(mapping).mkString(", ")}"
 }
 
 sealed trait TacImpl
@@ -59,4 +68,13 @@ case class Phi(blockLabels: IndexedSeq[Label]) extends TacImpl {
   }
 
   override def toString: String = "phi"
+}
+
+case class ParallelCopy(copies: IndexedSeq[(Temp, Temp)]) extends ToStringMapped[Temp] {
+  override def toStringMapped[B](mapping: Temp => B): String =
+    copies.map { case (src, dst) => s"${mapping(src)} <- ${mapping(dst)}" }.mkString(" || ")
+
+  def sources: IndexedSeq[Temp] = copies.map(_._1)
+  def definitions: IndexedSeq[Temp] = copies.map(_._2)
+  def add(src: Temp, dst: Temp): ParallelCopy = ParallelCopy(copies.appended((src, dst)))
 }

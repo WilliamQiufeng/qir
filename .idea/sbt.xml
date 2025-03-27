@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ScalaSbtSettings">
     <option name="customLauncherPath" />
-    <option name="customVMPath" />
+    <option name="customVMEnabled" value="true" />
+    <option name="customVMPath" value="E:/Java/graalvm-jdk-21.0.5+9.1" />
     <option name="linkedExternalProjectsSettings">
       <SbtProjectSettings>
         <option name="converterVersion" value="2" />

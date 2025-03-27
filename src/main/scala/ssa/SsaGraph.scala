@@ -11,7 +11,7 @@ object SsaGraph {
   type EdgeType = DiEdge[SsaBlockTac]
   type GraphType = Graph[SsaBlockTac, EdgeType]
 
-  def buildGraph(labelMap: Map[Label, SsaBlock], defUse: Map[Temp, DefUse]): GraphType = {
+  def buildGraph(labelMap: Map[Label, BasicSsaBlock], defUse: Map[Temp, DefUse]): GraphType = {
     val nodes =
       for block <- labelMap.values
           tac <- block.tacs

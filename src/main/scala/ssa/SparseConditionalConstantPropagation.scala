@@ -46,7 +46,7 @@ case object SCCPPass extends FunctionPass[WithSsaFunctionInfo, SsaFunctionInfo] 
     val constMap = constMapMut.toMap
 
     val newLabelMap = for (label, block) <- functionInfo.labelMap yield
-      label -> SsaBlock(
+      label -> BasicSsaBlock(
         label,
         block.phis.flatMap(replace(_, result.value, constMap)),
         block.trailingTacs.flatMap(replace(_, result.value, constMap))
