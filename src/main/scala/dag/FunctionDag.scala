@@ -45,13 +45,13 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
         label -> makeBlock(label, labelledBlock))
     )
     .updated(startBlock, Block(startBlock, List()))
-    .updated(endBlock, Block(endBlock, List(Tac(IndexedSeq(returnSink), None, Ret))))
+    .updated(endBlock, Block(endBlock, List(Ret(returnSink))))
   val errors: ArrayBuffer[SemanticError] = ArrayBuffer.empty
 
   private val edges: Iterable[LabelEdge] = labelMap.values.flatMap { block =>
     block.tacs.lastOption match
-      case Some(t) => t.impl match
-        case j: Jump => j.targets.map(LabelEdge(block.label, _))
+      case Some(t) => t match
+        case j: Terminator => j.targets.map(LabelEdge(block.label, _))
         case _ => Iterable.empty
       case _ => Iterable.empty
   }.concat(functionDecl.block.labelledBlocks.headOption map (b => LabelEdge(startBlock, b.name)))
@@ -86,26 +86,26 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   }
 
   private def makeBlock(label: Label, block: ast.LabelledBlock): Block = {
-    val jumpInstructions: List[Tac[TacImpl]] = block.jump match
-      case ast.Ret(value) => List(Tac(IndexedSeq(value), returnSink.some, Move), Tac(IndexedSeq.empty, None, Goto(endBlock)))
-      case ast.Goto(label) => List(Tac(IndexedSeq.empty, None, Goto(label)))
-      case ast.Branch(test, trueLabel, falseLabel) => List(Tac(IndexedSeq(test), None, Branch(trueLabel, falseLabel)))
+    val jumpInstructions: List[Tac] = block.jump match
+      case ast.Ret(value) => List(Move(returnSink, value), Goto(endBlock))
+      case ast.Goto(label) => List(Goto(label))
+      case ast.Branch(test, trueLabel, falseLabel) => List(Branch(test, trueLabel, falseLabel))
 
     val tacs = block.stmts.foldRight(jumpInstructions) { (instr, list) =>
       instr match
         case ast.Assign(dst, src) => src match
           case expr: ast.BinaryExpr => expr match
             case ast.AddInt(left, right) =>
-              Tac(IndexedSeq(left, right), Some(dst), BinaryArith(BinaryArithOp.AddI)) :: list
+              BinaryArith(dst, left, right, BinaryArithOp.AddI) :: list
             case ast.SubInt(left, right) =>
-              Tac(IndexedSeq(left, right), Some(dst), BinaryArith(BinaryArithOp.SubI)) :: list
+              BinaryArith(dst, left, right, BinaryArithOp.SubI) :: list
             case ast.MulInt(left, right) =>
-              Tac(IndexedSeq(left, right), Some(dst), BinaryArith(BinaryArithOp.MulI)) :: list
+              BinaryArith(dst, left, right, BinaryArithOp.MulI) :: list
             case ast.DivInt(left, right) =>
-              Tac(IndexedSeq(left, right), Some(dst), BinaryArith(BinaryArithOp.DivI)) :: list
-          case value: ast.Local => Tac(IndexedSeq(value), Some(dst), Move) :: list
+              BinaryArith(dst, left, right, BinaryArithOp.DivI) :: list
+          case value: ast.Local => Move(dst, value) :: list
           case ast.Call(fn, args) =>
-            Tac(IndexedSeq.from(args.map(localToTemp)), Some(dst), Call(fn.name)) :: list
+            Call(dst, IndexedSeq.from(args.map(localToTemp)), fn.name) :: list
           case ast.ArrayAccess(offset, from) => ???
         case ast.AssignElement(dst, src) => ???
     }

@@ -29,7 +29,7 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
     for b <- functionInfo.flowGraph.nodes.outerIterator.map(functionInfo.labelMap) do
       val varKill: mutable.Set[Temp] = mutable.Set.empty
       for i <- b.tacs do
-        i.definition.foreach(dst =>
+        i.definitions.foreach(dst =>
           varKill.addOne(dst)
           res.updateWith(dst) {
             case None => Some(Set.empty)
@@ -79,7 +79,7 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
             val sources = preds.map(_ => x)
             labelMap.updateWith(dfLabel) {
               case None => throw RuntimeException()
-              case Some(df) => Some(df.copy(phis = Tac(sources, x.some, Phi(preds)) :: df.phis))
+              case Some(df) => Some(df.copy(phis = Phi(x, sources, preds) :: df.phis))
             }
             workList += dfLabel
   }
@@ -105,18 +105,18 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
     labelMap.updateWith(blockLabel) {
       case Some(block) =>
         block.copy(
-          phis = block.phis.map(phi => phi.copy(definition = newName(phi.definition.get).temp.some)),
+          phis = block.phis.map(phi => phi.copy(definition = newName(phi.definition).temp)),
           trailingTacs = block.trailingTacs.map { i =>
-            i.copy(
-              sources = i.sources.map { src =>
-                if globals.contains(src) && getStack(src).nonEmpty then
-                  getStack(src).top
-                else
-                  src
-              },
-              definition = i.definition.map { definition =>
-                if globals.contains(definition) then newName(definition).temp else definition
-              })
+            val newSources = i.sources.map { src =>
+              if globals.contains(src) && getStack(src).nonEmpty then
+                getStack(src).top
+              else
+                src
+            }
+            val newDefinitions = i.definitions.map { definition =>
+              if globals.contains(definition) then newName(definition).temp else definition
+            }
+            i.rewrite(newDefinitions, newSources)
           }).some
       case None => None
     }
@@ -124,7 +124,7 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
       labelMap.updateWith(l) {
         case Some(block) => block.copy(
           phis = block.phis.map { tac =>
-            tac.impl.replace(blockLabel, src => if getStack(src).nonEmpty then getStack(src).top else src, tac)
+            tac.replace(blockLabel, src => if getStack(src).nonEmpty then getStack(src).top else src, tac)
           }).some
         case None => None
       })
@@ -136,8 +136,8 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
   }
 
   private def findNewReturnSink: Temp = labelMap(functionInfo.endBlock).trailingTacs.view.flatMap(
-    t => t.impl match
-      case Ret => Some(t.sources.head)
+    t => t match
+      case Ret(src) => Some(src)
       case _ => None
   ).head
 }

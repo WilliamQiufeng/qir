@@ -31,7 +31,7 @@ case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
         tac <- block.tacs
         use <- tac.sources do
       useChains.getOrElseUpdate(use, mutable.Set.empty[SsaBlockTac]).add(SsaBlockTac(tac, block.label))
-      tac.definition.foreach(defs.update(_, SsaBlockTac(tac, block.label)))
+      tac.definitions.foreach(defs.update(_, SsaBlockTac(tac, block.label)))
 
     tempMap.keys.map(key =>
       key -> DefUse(defs.get(key), useChains.getOrElse(key, mutable.Set.empty).toList)

@@ -7,13 +7,13 @@ import scalax.collection.io.dot.implicits.*
 import scalax.collection.{AnyGraph, GraphLike, immutable as img}
 
 
-case class BlockTac(tac: Tac[TacImpl], block: Block) {
+case class BlockTac(tac: Tac, block: Block) {
   override def toString: String = s"$tac in ${block.label}"
 }
 
 //type BlockEdge = DiEdge[Block]
 
-case class Block(label: Label, tacs: List[Tac[TacImpl]]) {
+case class Block(label: Label, tacs: List[Tac]) {
 
   override def toString: String = s"Block $label${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 

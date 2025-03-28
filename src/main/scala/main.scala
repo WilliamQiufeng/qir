@@ -23,7 +23,7 @@ def hi(): Unit = {
     println(x ^ y)
     println(x > y)
   }
-  val f = io.Source.fromResource("testCfg32.qir")
+  val f = io.Source.fromResource("testSCCP1.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)
@@ -47,7 +47,7 @@ def hi(): Unit = {
                   println(ssaFunctionInfo.tempMap)
                   println("Def-Use: ")
                   println(ssaFunctionInfo.defUseToString)
-                  println(ssaFunctionInfo.ssaGraph.asDot(_.toStringMappedFullTac(ssaFunctionInfo.tempMap)))
+                  println(ssaFunctionInfo.ssaGraph.asDot(_.toStringMapped(ssaFunctionInfo.tempMap)))
 //                  val s = SparseConditionalConstantPropagation(ssaFunctionInfo).result
 //                  println(s.value.mkString("\n"))
             case _ =>

@@ -13,10 +13,10 @@ import util.syntax.LatticeSyntax.MeetOps
 import scala.collection.mutable
 
 case object SCCPPass extends FunctionPass[WithSsaFunctionInfo, SsaFunctionInfo] {
-  private def replace[Impl <: TacImpl](t: Tac[Impl], mapping: Map[Temp, ConstantLattice[ast.Const]], constMap: Map[ast.Const, Temp]): Option[Tac[Impl]] = {
-    if t.definition.flatMap(mapping.get) match
-      case Some(ConstantValue(value)) => true
-      case _ => false
+  private def replace[T <: Tac](t: T, mapping: Map[Temp, ConstantLattice[ast.Const]], constMap: Map[ast.Const, Temp]): Option[T] = {
+    if t.definitions.flatMap(mapping.get).exists(_ match
+      case ConstantValue(value) => true
+      case _ => false)
     then return None
     val sources: IndexedSeq[Temp] = t.sources.map(src => (
       (
@@ -26,7 +26,7 @@ case object SCCPPass extends FunctionPass[WithSsaFunctionInfo, SsaFunctionInfo] 
         )
         <+> Some(src)
       ).getOrElse(src))
-    Some(Tac(sources, t.definition, t.impl))
+    Some(t.rewrite(t.definitions, sources).asInstanceOf[T])
   }
 
   override def apply(in: WithSsaFunctionInfo)(implicit ctx: CompilerContext): FunctionPassResult[SsaFunctionInfo] = {
@@ -76,11 +76,11 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
     value.getOrElseUpdate(temp, ConstantTop)
   }
 
-  private def evaluateBranch(t: Tac[TacImpl], blockLabel: Label) = {
-    t.impl match
-      case jump: Jump => jump match
+  private def evaluateBranch(t: Tac, blockLabel: Label) = {
+    t match
+      case jump: Terminator => jump match
         case Goto(label) => cfgWorklist += ssaFunctionInfo.flowGraph.get(LabelEdge(blockLabel, label))
-        case Branch(label1, label2) =>
+        case Branch(_, label1, label2) =>
           val edge1 = ssaFunctionInfo.flowGraph.get(LabelEdge(blockLabel, label1))
           val edge2 = ssaFunctionInfo.flowGraph.get(LabelEdge(blockLabel, label2))
           valueOf(t.sources.head) match
@@ -90,16 +90,16 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
             case ConstantValue(ast.ConstInteger(value)) =>
               cfgWorklist += (if value > 0 then edge1 else edge2)
             case _ => ()
-        case Ret => ()
+        case Ret(_) => ()
       case _ => throw new Exception("This should not happen")
   }
 
-  private def evaluate(t: Tac[TacImpl], blockLabel: Label): ConstantLattice[ast.Const] = {
-    t.impl match
-      case _: tac.Jump => throw new Exception("Jump shouldn't be handled here")
-      case tac.BinaryArith(op) =>
-        val left = valueOf(t.sources(0))
-        val right = valueOf(t.sources(1))
+  private def evaluate(t: Tac, blockLabel: Label): ConstantLattice[ast.Const] = {
+    t match
+      case _: tac.Terminator => throw new Exception("Jump shouldn't be handled here")
+      case tac.BinaryArith(_, l, r, op) =>
+        val left = valueOf(l)
+        val right = valueOf(r)
         op match
           case BinaryArithOp.AddI => left.combine(right)((_, _) match
             case (ast.ConstInteger(a), ast.ConstInteger(b)) => ast.ConstInteger(a + b)
@@ -119,17 +119,17 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
             case (ast.ConstInteger(a), ast.ConstInteger(b)) => ast.ConstInteger(a / b)
             case _ => throw new Exception("Type mismatch")
           )
-      case tac.Move => valueOf(t.sources.head)
-      case tac.Call(fnName) => ConstantBottom
-      case tac.Phi(blockLabels) => throw new Exception(s"Phi shouldn't appear here")
+      case tac.Move(_, src) => valueOf(src)
+      case tac.Call(_, _, fnName) => ConstantBottom
+      case tac.Phi(_, _, _) => throw new Exception(s"Phi shouldn't appear here")
   }
 
-  private def visitExpression(t: Tac[TacImpl], blockLabel: Label): Unit = {
-    t.impl match
-      case _: tac.Jump => evaluateBranch(t, blockLabel)
+  private def visitExpression(t: Tac, blockLabel: Label): Unit = {
+    t match
+      case _: tac.Terminator => evaluateBranch(t, blockLabel)
       case _ =>
         val right = evaluate(t, blockLabel)
-        t.definition.foreach(definition =>
+        t.definitions.foreach(definition =>
           ssaWorklist.enqueueAll(ssaGraph.get(SsaBlockTac(t, blockLabel)).outgoing)
           value.updateWith(definition) {
             case Some(value) => Some(value ^ right)
@@ -137,10 +137,10 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
           })
   }
 
-  private def visitPhi(phi: Tac[Phi], blockLabel: Label): Unit = {
+  private def visitPhi(phi: Phi, blockLabel: Label): Unit = {
     // Update the value of definition. If the block of source is not marked, use top
-    value.update(phi.definition.get,
-      phi.impl.blockLabels
+    value.update(phi.definition,
+      phi.blockLabels
         .zip(phi.sources)
         .map((srcLabel, srcTemp) =>
           if executable.contains(ssaFunctionInfo.flowGraph get LabelEdge(srcLabel, blockLabel))
@@ -183,8 +183,8 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
       while ssaWorklist.nonEmpty do
         val edge = ssaWorklist.dequeue()
         val dest = edge.target
-        dest.tac.impl match
-          case phi: Phi => visitPhi(dest.tac.asInstanceOf, dest.label)
+        dest.tac match
+          case phi: Phi => visitPhi(phi, dest.label)
           case _ if ssaFunctionInfo.flowGraph.get(dest.label).incoming.exists(executable.contains) =>
             visitExpression(dest.tac, dest.label)
 

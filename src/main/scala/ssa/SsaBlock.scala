@@ -6,38 +6,34 @@ import util.ToStringMapped
 
 import scala.collection.SeqView
 
-case class SsaBlockTac(tac: Tac[TacImpl], label: Label) {
-  override def toString: String = toStringMappedFullTac(x => x)
-
-  def toStringMapped[T](mapping: Temp => T): String = s"(${tac.impl.toString} at $label)"
-
-  def toStringMappedFullTac[T](mapping: Temp => T): String = s"(${tac.toStringMapped(mapping)} at $label)"
+case class SsaBlockTac(tac: Tac, label: Label) extends ToStringMapped[Temp] {
+  override def toStringMapped[T](mapping: Temp => T): String = s"(${tac.toStringMapped(mapping)} at $label)"
 }
 
 trait SsaBlock {
   def label: Label
 
-  def phis: List[Tac[Phi]]
+  def phis: List[Phi]
 
-  def trailingTacs: IndexedSeq[Tac[TacImpl]]
+  def trailingTacs: IndexedSeq[Tac]
 
   def getNextBlockIfEmpty(tempMap: Map[Temp, SsaSymbol]): Option[Label] = {
     if phis.nonEmpty || trailingTacs.size != 1 then
       return None
-    trailingTacs.last.impl match
-      case jump: Jump => jump match
+    trailingTacs.last match
+      case jump: Terminator => jump match
         case Goto(label) => Some(label)
-        case Branch(label1, label2) => tempMap(trailingTacs.last.sources.head) match
+        case Branch(_, label1, label2) => tempMap(trailingTacs.last.sources.head) match
           case ConstIRSymbol(ast.ConstInteger(v), _, _, _) => Some(if v > 0 then label1 else label2)
           case _ => None
-        case Ret => None
+        case Ret(_) => None
       case _ => throw new Exception("What")
   }
 }
 
-case class BasicSsaBlock(label: Label, phis: List[Tac[Phi]], trailingTacs: IndexedSeq[Tac[TacImpl]]) extends SsaBlock, ToStringMapped[Temp] {
+case class BasicSsaBlock(label: Label, phis: List[Phi], trailingTacs: IndexedSeq[Tac]) extends SsaBlock, ToStringMapped[Temp] {
 
-  def tacs: SeqView[Tac[TacImpl]] = trailingTacs.view.prependedAll(phis.view.map(t => Tac(t.sources, t.definition, t.impl)))
+  def tacs: SeqView[Tac] = trailingTacs.view.prependedAll(phis)
 
   override def toStringMapped[T](mapping: Temp => T): String =
     s"""Block $label {
@@ -48,9 +44,9 @@ case class BasicSsaBlock(label: Label, phis: List[Tac[Phi]], trailingTacs: Index
 }
 
 case class SsaBlockPc(label: Label,
-                      phis: List[Tac[Phi]],
+                      phis: List[Phi],
                       pcAfterPhi: ParallelCopy,
-                      trailingTacs: IndexedSeq[Tac[TacImpl]],
+                      trailingTacs: IndexedSeq[Tac],
                       pcAtEnd: ParallelCopy)
   extends SsaBlock, ToStringMapped[Temp] {
 
