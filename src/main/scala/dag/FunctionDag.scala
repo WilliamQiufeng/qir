@@ -52,11 +52,7 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   val errors: ArrayBuffer[SemanticError] = ArrayBuffer.empty
 
   private val edges: Iterable[LabelEdge] = labelMap.values.flatMap { block =>
-    block.tacs.lastOption match
-      case Some(t) => t match
-        case j: Terminator => j.targets.map(LabelEdge(block.label, _))
-        case _ => Iterable.empty
-      case _ => Iterable.empty
+    block.terminator.targets.map(LabelEdge(block.label, _))
   }.concat(functionDecl.block.labelledBlocks.headOption map (b => LabelEdge(startBlock, b.name)))
 
   // Construct graph

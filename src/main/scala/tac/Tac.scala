@@ -20,7 +20,9 @@ trait Tac extends ToStringMapped[Temp] {
   override def toStringMapped[B](mapping: Temp => B): String = s"${definitions.map(mapping).mkString(", ")} <- $operationName ${sources.map(mapping).mkString(", ")}"
 }
 
-trait NormalTac extends Tac
+trait NormalTac extends Tac {
+  def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): NormalTac
+}
 
 trait SingleDefinition {
   this: Tac =>
@@ -56,6 +58,8 @@ trait NoDefinitionAndSource extends NoDefinition, NoSource {
 }
 
 trait Terminator extends Tac, NoDefinition {
+  def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Terminator
+  
   def targets: IndexedSeq[Label]
 }
 

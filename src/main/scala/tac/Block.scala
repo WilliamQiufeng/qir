@@ -17,6 +17,7 @@ case class BlockTac(tac: Tac, block: NormalBlock) {
 trait Block {
   def label: Label
   def tacs: View[Tac]
+  def terminator: Terminator
 }
 case class NormalBlock(label: Label, normalTacs: List[NormalTac], terminator: Terminator) extends Block {
   override def tacs: View[Tac] = normalTacs.view.appended(terminator)

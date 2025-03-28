@@ -40,7 +40,7 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
   }
   private val labelMap: mutable.Map[Label, BasicSsaBlock] = mutable.HashMap.from(
     functionInfo.labelMap.map((k, v) =>
-      k -> BasicSsaBlock(v.label, List(), v.tacs.toIndexedSeq)
+      k -> BasicSsaBlock(v.label, List(), v.normalTacs.toIndexedSeq, v.terminator)
     )
   )
   private val newTempMap: mutable.Map[Temp, SsaSymbol] = mutable.Map.empty
@@ -106,18 +106,15 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
       case Some(block) =>
         block.copy(
           phis = block.phis.map(phi => phi.copy(definition = newName(phi.definition).temp)),
-          trailingTacs = block.trailingTacs.map { i =>
-            val newSources = i.sources.map { src =>
-              if globals.contains(src) && getStack(src).nonEmpty then
-                getStack(src).top
-              else
-                src
-            }
+          normalTacs = block.normalTacs.map { i =>
+            val newSources = rewriteSources(i)
             val newDefinitions = i.definitions.map { definition =>
               if globals.contains(definition) then newName(definition).temp else definition
             }
             i.rewrite(newDefinitions, newSources)
-          }).some
+          },
+          terminator = block.terminator.rewrite(block.terminator.definitions, rewriteSources(block.terminator))
+        ).some
       case None => None
     }
     (functionInfo.flowGraph get blockLabel).diSuccessors.foreach(l =>
@@ -135,9 +132,16 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
     symbolsOverwritten.foreach(s => getStack(s.temp).pop())
   }
 
-  private def findNewReturnSink: Temp = labelMap(functionInfo.endBlock).trailingTacs.view.flatMap(
-    t => t match
-      case Ret(src) => Some(src)
-      case _ => None
-  ).head
+  private def rewriteSources(i: Tac) = {
+    i.sources.map { src =>
+      if globals.contains(src) && getStack(src).nonEmpty then
+        getStack(src).top
+      else
+        src
+    }
+  }
+
+  private def findNewReturnSink: Temp = labelMap(functionInfo.endBlock).terminator match
+      case Ret(src) => src
+      case _ => throw RuntimeException()
 }

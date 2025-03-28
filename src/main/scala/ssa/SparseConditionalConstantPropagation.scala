@@ -46,10 +46,10 @@ case object SCCPPass extends FunctionPass[WithSsaFunctionInfo, SsaFunctionInfo] 
     val constMap = constMapMut.toMap
 
     val newLabelMap = for (label, block) <- functionInfo.labelMap yield
-      label -> BasicSsaBlock(
+      label -> block.rewrite(
         label,
         block.phis.flatMap(replace(_, result.value, constMap)),
-        block.trailingTacs.flatMap(replace(_, result.value, constMap))
+        block.trailingTacs.flatMap(replace(_, result.value, constMap)).toIndexedSeq
       )
 
     val newGraph = Graph.from(functionInfo.flowGraph.nodes.outerIterable, result.executable)
