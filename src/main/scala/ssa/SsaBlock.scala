@@ -4,15 +4,13 @@ import semantic.{ConstIRSymbol, SsaSymbol, Temp}
 import tac.*
 import util.ToStringMapped
 
-import scala.collection.SeqView
+import scala.collection.{SeqView, View}
 
 case class SsaBlockTac(tac: Tac, label: Label) extends ToStringMapped[Temp] {
   override def toStringMapped[T](mapping: Temp => T): String = s"(${tac.toStringMapped(mapping)} at $label)"
 }
 
-trait SsaBlock {
-  def label: Label
-
+trait SsaBlock extends Block {
   def phis: List[Phi]
 
   def trailingTacs: IndexedSeq[Tac]
@@ -49,6 +47,8 @@ case class SsaBlockPc(label: Label,
                       trailingTacs: IndexedSeq[Tac],
                       pcAtEnd: ParallelCopy)
   extends SsaBlock, ToStringMapped[Temp] {
+
+  override def tacs: View[Tac] = phis.view.appended(pcAfterPhi).appendedAll(trailingTacs).appended(pcAtEnd)
 
   override def toStringMapped[B](mapping: Temp => B): String =
     s"""Block $label {

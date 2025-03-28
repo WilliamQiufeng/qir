@@ -39,13 +39,16 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
   private val tempMap: Map[Temp, IRSymbol] = symbolTable.map.map(p => p._2.temp -> p._2) ++ semanticAnalysis.constTempMap +
     (returnSink -> NormalIRSymbol(returnSink, functionDecl.retTy, "%ret".some))
   private val labelSymbolMap: Map[ast.LabelValue, Label] = Map.from(functionDecl.block.labelledBlocks.map(_.name -> Label()))
-  private val labelMap: Map[Label, Block] = Map.from(
-      functionDecl.block.labelledBlocks.map(labelledBlock =>
-        val label = labelSymbolMap(labelledBlock.name)
-        label -> makeBlock(label, labelledBlock))
-    )
-    .updated(startBlock, Block(startBlock, List()))
-    .updated(endBlock, Block(endBlock, List(Ret(returnSink))))
+  private val labelMap: Map[Label, NormalBlock] = {
+      val userDefinedLabels = Map.from(
+        functionDecl.block.labelledBlocks.map(labelledBlock =>
+          val label = labelSymbolMap(labelledBlock.name)
+          label -> makeBlock(label, labelledBlock))
+      )
+      userDefinedLabels
+        .updated(startBlock, NormalBlock(startBlock, List(), Goto(labelSymbolMap(functionDecl.block.labelledBlocks.head.name))))
+        .updated(endBlock, NormalBlock(endBlock, List(), Ret(returnSink)))
+  }
   val errors: ArrayBuffer[SemanticError] = ArrayBuffer.empty
 
   private val edges: Iterable[LabelEdge] = labelMap.values.flatMap { block =>
@@ -74,7 +77,7 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
     }
   }
 
-  private implicit def lookupBlock(label: Label): Block = labelMap(label)
+  private implicit def lookupBlock(label: Label): NormalBlock = labelMap(label)
 
   private implicit def lookupLabelValue(labelValue: ast.LabelValue): Label = labelSymbolMap(labelValue)
 
@@ -85,13 +88,15 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
     }
   }
 
-  private def makeBlock(label: Label, block: ast.LabelledBlock): Block = {
-    val jumpInstructions: List[Tac] = block.jump match
-      case ast.Ret(value) => List(Move(returnSink, value), Goto(endBlock))
-      case ast.Goto(label) => List(Goto(label))
-      case ast.Branch(test, trueLabel, falseLabel) => List(Branch(test, trueLabel, falseLabel))
+  private def makeBlock(label: Label, block: ast.LabelledBlock): NormalBlock = {
+    val (initialTacList, terminator) = {
+      block.jump match
+        case ast.Ret(value) => (List[NormalTac](Move(returnSink, value)), Goto(endBlock))
+        case ast.Goto(label) => (List.empty, Goto(label))
+        case ast.Branch(test, trueLabel, falseLabel) => (List.empty, Branch(test, trueLabel, falseLabel))
+    }
 
-    val tacs = block.stmts.foldRight(jumpInstructions) { (instr, list) =>
+    val tacs = block.stmts.foldRight(initialTacList) { (instr, list) =>
       instr match
         case ast.Assign(dst, src) => src match
           case expr: ast.BinaryExpr => expr match
@@ -109,7 +114,7 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
           case ast.ArrayAccess(offset, from) => ???
         case ast.AssignElement(dst, src) => ???
     }
-    Block(label, tacs)
+    NormalBlock(label, tacs, terminator)
   }
 
   def makeInfo: FunctionInfo = FunctionInfo(functionDecl, returnSink, labelMap, labelSymbolMap, startBlock, endBlock, symbolTable, graph, tempMap,

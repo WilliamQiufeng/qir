@@ -6,18 +6,23 @@ import scalax.collection.io.dot.*
 import scalax.collection.io.dot.implicits.*
 import scalax.collection.{AnyGraph, GraphLike, immutable as img}
 
+import scala.collection.View
 
-case class BlockTac(tac: Tac, block: Block) {
+
+case class BlockTac(tac: Tac, block: NormalBlock) {
   override def toString: String = s"$tac in ${block.label}"
 }
 
 //type BlockEdge = DiEdge[Block]
-
-case class Block(label: Label, tacs: List[Tac]) {
-
+trait Block {
+  def label: Label
+  def tacs: View[Tac]
+}
+case class NormalBlock(label: Label, normalTacs: List[NormalTac], terminator: Terminator) extends Block {
+  override def tacs: View[Tac] = normalTacs.view.appended(terminator)
   override def toString: String = s"Block $label${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 
-  def self: Block = this
+  def self: NormalBlock = this
 
   //  def fillDefUse(): Unit = {
   //    for tac <- tacs do

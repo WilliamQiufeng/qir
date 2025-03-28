@@ -4,6 +4,8 @@ import cats.syntax.all.*
 import semantic.Temp
 import util.ToStringMapped
 
+import scala.collection.View
+
 case class TacExpression[+Impl <: Tac](sources: IndexedSeq[Temp], impl: Impl)
 
 trait Tac extends ToStringMapped[Temp] {
@@ -17,6 +19,8 @@ trait Tac extends ToStringMapped[Temp] {
 
   override def toStringMapped[B](mapping: Temp => B): String = s"${definitions.map(mapping).mkString(", ")} <- $operationName ${sources.map(mapping).mkString(", ")}"
 }
+
+trait NormalTac extends Tac
 
 trait SingleDefinition {
   this: Tac =>
@@ -62,7 +66,7 @@ enum BinaryArithOp {
   case DivI
 }
 
-case class BinaryArith(definition: Temp, left: Temp, right: Temp, op: BinaryArithOp) extends Tac, SingleDefinition {
+case class BinaryArith(definition: Temp, left: Temp, right: Temp, op: BinaryArithOp) extends NormalTac, SingleDefinition {
   override def sources: IndexedSeq[Temp] = IndexedSeq(left, right)
 
   override def operationName: String = op.toString
@@ -70,7 +74,7 @@ case class BinaryArith(definition: Temp, left: Temp, right: Temp, op: BinaryArit
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): BinaryArith = BinaryArith(definitions.head, sources(0), sources(1), op)
 }
 
-case class Move(definition: Temp, source: Temp) extends Tac, SingleDefinition, SingleSource {
+case class Move(definition: Temp, source: Temp) extends NormalTac, SingleDefinition, SingleSource {
   override def toString = s"$definition <- $source"
 
   override def operationName: String = "move"
@@ -78,7 +82,7 @@ case class Move(definition: Temp, source: Temp) extends Tac, SingleDefinition, S
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Move = Move(definitions.head, sources.head)
 }
 
-case class Call(definition: Temp, sources: IndexedSeq[Temp], fnName: String) extends Tac, SingleDefinition {
+case class Call(definition: Temp, sources: IndexedSeq[Temp], fnName: String) extends NormalTac, SingleDefinition {
   override def operationName: String = s"call $fnName"
 
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Call = {
@@ -130,13 +134,16 @@ case class Phi(definition: Temp, sources: IndexedSeq[Temp], blockLabels: Indexed
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Phi = Phi(definitions.head, sources, blockLabels)
 }
 
-case class ParallelCopy(copies: IndexedSeq[(Temp, Temp)]) extends ToStringMapped[Temp] {
+case class ParallelCopy(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]) extends Tac, ToStringMapped[Temp] {
   override def toStringMapped[B](mapping: Temp => B): String =
     copies.map { case (src, dst) => s"${mapping(src)} <- ${mapping(dst)}" }.mkString(" || ")
 
-  def sources: IndexedSeq[Temp] = copies.map(_._1)
+  def copies: View[(Temp, Temp)] = definitions.view.zip(sources)
 
-  def definitions: IndexedSeq[Temp] = copies.map(_._2)
+  def add(src: Temp, dst: Temp): ParallelCopy = ParallelCopy(definitions.appended(dst), sources.appended(src))
 
-  def add(src: Temp, dst: Temp): ParallelCopy = ParallelCopy(copies.appended((src, dst)))
+  override def operationName: String = "parallel_copy"
+
+  override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Tac =
+    ParallelCopy(definitions, sources)
 }

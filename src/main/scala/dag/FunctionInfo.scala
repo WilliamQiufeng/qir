@@ -4,12 +4,12 @@ import ast.{ConcreteFnDecl, LabelValue}
 import common.FunctionIR
 import scalax.collection.immutable.Graph
 import semantic.{FunctionSymbolTable, IRSymbol, Temp}
-import tac.{Block, Label, LabelEdge}
+import tac.{NormalBlock, Label, LabelEdge}
 
 
 case class FunctionInfo(functionDecl: ConcreteFnDecl,
                         returnSink: Temp,
-                        labelMap: Map[Label, Block],
+                        labelMap: Map[Label, NormalBlock],
                         labelSymbolMap: Map[LabelValue, Label],
                         startBlock: Label,
                         endBlock: Label,
