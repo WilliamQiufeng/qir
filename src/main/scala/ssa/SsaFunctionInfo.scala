@@ -21,6 +21,7 @@ case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
                            tempMap: Map[Temp, SsaSymbol],
                            header: FunctionHeader
                           ) extends FunctionIR, WithSsaFunctionInfo {
+  override def updatedFunctionInfo(newInfo: SsaFunctionInfo): WithSsaFunctionInfo = newInfo
   def toDot: String = flowGraph.asDot(x => labelMap(x).toStringMapped(tempMap))
 
   lazy val defUse: Map[Temp, DefUse] = {

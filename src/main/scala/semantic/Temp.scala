@@ -9,4 +9,5 @@ case class Temp(id: Int = Temp.counter) {
 
 object Temp {
   private var counter = 0
+  def make: Temp = Temp()
 }

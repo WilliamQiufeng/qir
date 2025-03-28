@@ -6,7 +6,7 @@ import dag.FunctionDagGenerationPass
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
-import ssa.{SCCPPass, SsaConstructionPass}
+import ssa.{ConventionalizeSsaPass, SCCPPass, SsaConstructionPass}
 import tac.asDot
 import util.lattices.setBoundedLattice
 import util.syntax.LatticeSyntax.MeetOps
@@ -28,7 +28,7 @@ def hi(): Unit = {
   println(l)
   val ast = parser.program.parse(l)
   println(ast)
-  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen SCCPPass
+  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen ConventionalizeSsaPass
 
   for i <- 0 to 0 do
     SemanticAnalysis(ast.get) match
@@ -42,12 +42,12 @@ def hi(): Unit = {
               res match
                 case Left(value) => println(value)
                 case Right(ssaFunctionInfo) =>
-                  println(ssaFunctionInfo.symbolTable)
-                  println(ssaFunctionInfo.toDot)
-                  println(ssaFunctionInfo.tempMap)
+                  println(ssaFunctionInfo.functionInfo.symbolTable)
+                  println(ssaFunctionInfo.functionInfo.toDot)
+                  println(ssaFunctionInfo.functionInfo.tempMap)
                   println("Def-Use: ")
-                  println(ssaFunctionInfo.defUseToString)
-                  println(ssaFunctionInfo.ssaGraph.asDot(_.toStringMapped(ssaFunctionInfo.tempMap)))
+                  println(ssaFunctionInfo.functionInfo.defUseToString)
+                  println(ssaFunctionInfo.functionInfo.ssaGraph.asDot(_.toStringMapped(ssaFunctionInfo.functionInfo.tempMap)))
 //                  val s = SparseConditionalConstantPropagation(ssaFunctionInfo).result
 //                  println(s.value.mkString("\n"))
             case _ =>

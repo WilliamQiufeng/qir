@@ -17,6 +17,9 @@ trait Tac extends ToStringMapped[Temp] {
 
   def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Tac
 
+  def map(f: Temp => Temp): Tac = rewrite(definitions.map(f), sources.map(f))
+  def replace(from: Temp, to: Temp): Tac = map { temp => if from == temp then to else temp }
+
   override def toStringMapped[B](mapping: Temp => B): String = s"${definitions.map(mapping).mkString(", ")} <- $operationName ${sources.map(mapping).mkString(", ")}"
 }
 
@@ -59,7 +62,7 @@ trait NoDefinitionAndSource extends NoDefinition, NoSource {
 
 trait Terminator extends Tac, NoDefinition {
   def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Terminator
-  
+
   def targets: IndexedSeq[Label]
 }
 
@@ -122,6 +125,7 @@ case class Ret(source: Temp) extends Terminator, NoDefinition, SingleSource {
 
 case class Phi(definition: Temp, sources: IndexedSeq[Temp], blockLabels: IndexedSeq[Label]) extends Tac, SingleDefinition {
   private val labelIndex = Map.from(blockLabels.zipWithIndex)
+  def pairs: View[(Temp, Label)] = sources.view.zip(blockLabels)
 
   def replace(label: Label, transform: Temp => Temp, tac: Phi): Phi = {
     labelIndex.get(label) match
@@ -130,7 +134,7 @@ case class Phi(definition: Temp, sources: IndexedSeq[Temp], blockLabels: Indexed
       case None => tac
   }
 
-  override def toStringMapped[B](mapping: Temp => B): String = 
+  override def toStringMapped[B](mapping: Temp => B): String =
     s"${mapping(definition)} <- phi ${sources.zip(blockLabels).map { case (src, label) => s"${mapping(src)} : $label" }.mkString(", ")}"
 
   override def operationName: String = "phi"
@@ -138,16 +142,20 @@ case class Phi(definition: Temp, sources: IndexedSeq[Temp], blockLabels: Indexed
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Phi = Phi(definitions.head, sources, blockLabels)
 }
 
-case class ParallelCopy(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]) extends Tac, ToStringMapped[Temp] {
+case class ParallelCopy(destSrcMapping: Map[Temp, Temp]) extends Tac, ToStringMapped[Temp] {
+  override def definitions: IndexedSeq[Temp] = destSrcMapping.keys.toIndexedSeq
+  override def sources: IndexedSeq[Temp] = destSrcMapping.values.toIndexedSeq
   override def toStringMapped[B](mapping: Temp => B): String =
-    copies.map { case (src, dst) => s"${mapping(src)} <- ${mapping(dst)}" }.mkString(" || ")
+    copies.map { case (dst, src) => s"${mapping(dst)} <- ${mapping(src)}" }.mkString("|| ", "  || ", " ||")
 
-  def copies: View[(Temp, Temp)] = definitions.view.zip(sources)
+  def copies: View[(Temp, Temp)] = destSrcMapping.view
 
-  def add(src: Temp, dst: Temp): ParallelCopy = ParallelCopy(definitions.appended(dst), sources.appended(src))
+  def add(dst: Temp, src: Temp): ParallelCopy = ParallelCopy(destSrcMapping.updated(dst, src))
+
+  def merge(other: ParallelCopy): ParallelCopy = ParallelCopy(destSrcMapping ++ other.destSrcMapping)
 
   override def operationName: String = "parallel_copy"
 
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Tac =
-    ParallelCopy(definitions, sources)
+    ParallelCopy(definitions.zip(sources).toMap)
 }
