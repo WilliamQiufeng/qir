@@ -1,0 +1,4 @@
+fn @test(): Unit
+    @A: goto @B
+    @B: goto @C
+    @C: goto @A

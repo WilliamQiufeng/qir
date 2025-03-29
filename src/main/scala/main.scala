@@ -23,7 +23,7 @@ def hi(): Unit = {
     println(x ^ y)
     println(x > y)
   }
-  val f = io.Source.fromResource("testSCCP1.qir")
+  val f = io.Source.fromResource("testCycling.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)
