@@ -64,6 +64,8 @@ trait Terminator extends Tac, NoDefinition {
   def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Terminator
 
   def targets: IndexedSeq[Label]
+
+  def rewrite(targets: IndexedSeq[Label]): Terminator
 }
 
 enum BinaryArithOp {
@@ -105,6 +107,8 @@ case class Goto(label: Label) extends Terminator, NoDefinitionAndSource {
   override def operationName: String = s"goto $label"
 
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Goto = Goto(label)
+
+  override def rewrite(targets: IndexedSeq[Label]): Terminator = Goto(targets.head)
 }
 
 case class Branch(source: Temp, label1: Label, label2: Label) extends Terminator, NoDefinition, SingleSource {
@@ -113,6 +117,8 @@ case class Branch(source: Temp, label1: Label, label2: Label) extends Terminator
   override val targets: IndexedSeq[Label] = IndexedSeq(label1, label2)
 
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Branch = Branch(sources.head, label1, label2)
+
+  override def rewrite(targets: IndexedSeq[Label]): Terminator = Branch(source, targets(0), targets(1))
 }
 
 case class Ret(source: Temp) extends Terminator, NoDefinition, SingleSource {
@@ -121,6 +127,8 @@ case class Ret(source: Temp) extends Terminator, NoDefinition, SingleSource {
   override def operationName: String = "ret"
 
   override def rewrite(definitions: IndexedSeq[Temp], sources: IndexedSeq[Temp]): Ret = Ret(sources.head)
+
+  override def rewrite(targets: IndexedSeq[Label]): Terminator = this
 }
 
 case class Phi(definition: Temp, sources: IndexedSeq[Temp], blockLabels: IndexedSeq[Label]) extends Tac, SingleDefinition {

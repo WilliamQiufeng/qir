@@ -29,6 +29,7 @@ trait SsaBlock extends Block, ToStringMapped[Temp] {
   }
 
   def rewrite(label: Label, phis: List[Phi], trailingTacs: IndexedSeq[Tac]): SsaBlock
+  def rewriteTerminator(terminator: Terminator): SsaBlock
 }
 
 case class BasicSsaBlock(label: Label, phis: List[Phi], normalTacs: IndexedSeq[NormalTac], terminator: Terminator) extends SsaBlock {
@@ -41,6 +42,10 @@ case class BasicSsaBlock(label: Label, phis: List[Phi], normalTacs: IndexedSeq[N
 
   override def rewrite(label: Label, phis: List[Phi], trailingTacs: IndexedSeq[Tac]): BasicSsaBlock =
     BasicSsaBlock(label, phis, trailingTacs.slice(0, trailingTacs.size - 1).map(_.asInstanceOf[NormalTac]), trailingTacs.last.asInstanceOf)
+
+  override def rewriteTerminator(terminator: Terminator): SsaBlock = BasicSsaBlock(label, phis, normalTacs, terminator)
+
+  override def isEmpty: Boolean = phis.isEmpty && normalTacs.isEmpty
 }
 
 case class SsaBlockPc(label: Label,
@@ -63,4 +68,8 @@ case class SsaBlockPc(label: Label,
       trailingTacs.slice(1, trailingTacs.size - 2).map(_.asInstanceOf),
       trailingTacs(trailingTacs.size - 2).asInstanceOf,
       trailingTacs.last.asInstanceOf)
+
+  override def isEmpty: Boolean = phis.isEmpty && normalTacs.isEmpty && pcAfterPhi.copies.isEmpty && pcAtEnd.copies.isEmpty
+
+  override def rewriteTerminator(terminator: Terminator): SsaBlock = SsaBlockPc(label, phis, pcAfterPhi, normalTacs, pcAtEnd, terminator)
 }

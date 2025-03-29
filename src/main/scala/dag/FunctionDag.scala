@@ -1,12 +1,12 @@
 package dag
 
+import cats.syntax.all.{catsSyntaxApplicativeId, catsSyntaxOptionId}
 import common.{CompilerContext, FunctionPass, FunctionPassResult}
+import dag.FunctionDag.makeFlowGraph
+import mem.CDecl
 import scalax.collection.immutable.Graph
 import semantic.*
 import tac.*
-import cats.syntax.all.catsSyntaxOptionId
-import cats.syntax.all.catsSyntaxApplicativeId
-import mem.CDecl
 
 import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
@@ -40,23 +40,23 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
     (returnSink -> NormalIRSymbol(returnSink, functionDecl.retTy, "%ret".some))
   private val labelSymbolMap: Map[ast.LabelValue, Label] = Map.from(functionDecl.block.labelledBlocks.map(_.name -> Label()))
   private val labelMap: Map[Label, NormalBlock] = {
-      val userDefinedLabels = Map.from(
-        functionDecl.block.labelledBlocks.map(labelledBlock =>
-          val label = labelSymbolMap(labelledBlock.name)
-          label -> makeBlock(label, labelledBlock))
-      )
-      userDefinedLabels
-        .updated(startBlock, NormalBlock(startBlock, List(), Goto(labelSymbolMap(functionDecl.block.labelledBlocks.head.name))))
-        .updated(endBlock, NormalBlock(endBlock, List(), Ret(returnSink)))
+    val userDefinedLabels = Map.from(
+      functionDecl.block.labelledBlocks.map(labelledBlock =>
+        val label = labelSymbolMap(labelledBlock.name)
+        label -> makeBlock(label, labelledBlock))
+    )
+    userDefinedLabels
+      .updated(startBlock, NormalBlock(startBlock, List(), Goto(labelSymbolMap(functionDecl.block.labelledBlocks.head.name))))
+      .updated(endBlock, NormalBlock(endBlock, List(), Ret(returnSink)))
   }
   val errors: ArrayBuffer[SemanticError] = ArrayBuffer.empty
 
-  private val edges: Iterable[LabelEdge] = labelMap.values.flatMap { block =>
-    block.terminator.targets.map(LabelEdge(block.label, _))
-  }.concat(functionDecl.block.labelledBlocks.headOption map (b => LabelEdge(startBlock, b.name)))
 
   // Construct graph
-  val graph: Graph[Label, LabelEdge] = Graph.from(labelMap.keys, edges)
+  val graph: Graph[Label, LabelEdge] = makeFlowGraph(
+    labelMap,
+    startBlock,
+    functionDecl.block.labelledBlocks.headOption.map(_.name))
 
   private implicit def valueTypeToType(valueType: ast.ValueType): Type =
     semanticAnalysis.lookupValueType(valueType).get
@@ -115,4 +115,17 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
 
   def makeInfo: FunctionInfo = FunctionInfo(functionDecl, returnSink, labelMap, labelSymbolMap, startBlock, endBlock, symbolTable, graph, tempMap,
     FunctionHeader(CDecl, arguments))
+}
+
+object FunctionDag {
+  def makeFlowGraph(labelMap: Map[Label, Block], startBlock: Label, entryBlock: Option[Label]): Graph[Label, LabelEdge] = {
+    val edges = labelMap.values.flatMap { block =>
+      block.terminator.targets.map(LabelEdge(block.label, _))
+    }
+    // Construct graph
+    Graph.from(labelMap.keys, entryBlock match {
+      case None => edges
+      case Some(entry) => edges.toIndexedSeq :+ LabelEdge(startBlock, entry)
+    })
+  }
 }

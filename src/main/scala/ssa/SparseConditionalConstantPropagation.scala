@@ -80,15 +80,15 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
     t match
       case jump: Terminator => jump match
         case Goto(label) => cfgWorklist += ssaFunctionInfo.flowGraph.get(LabelEdge(blockLabel, label))
-        case Branch(_, label1, label2) =>
+        case Branch(cond, label1, label2) =>
           val edge1 = ssaFunctionInfo.flowGraph.get(LabelEdge(blockLabel, label1))
           val edge2 = ssaFunctionInfo.flowGraph.get(LabelEdge(blockLabel, label2))
-          valueOf(t.sources.head) match
+          valueOf(cond) match
             case ConstantBottom =>
               cfgWorklist += edge1
               cfgWorklist += edge2
-            case ConstantValue(ast.ConstInteger(value)) =>
-              cfgWorklist += (if value > 0 then edge1 else edge2)
+            case ConstantValue(value: ast.Const) =>
+              cfgWorklist += (if value.boolean.exists{x => x} then edge1 else edge2)
             case _ => ()
         case Ret(_) => ()
       case _ => throw new Exception("This should not happen")

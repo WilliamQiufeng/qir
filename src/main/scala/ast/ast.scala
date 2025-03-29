@@ -23,6 +23,7 @@ package object ast {
 
   sealed trait Const(repr: String) {
     override def toString: String = repr
+    def boolean: Option[Boolean] = None
   }
 
   case class Program(lines: List[ProgramUnit])
@@ -79,7 +80,9 @@ package object ast {
 
   //  case class ConstFieldAccess(from: Var, fieldName: String) extends Var
 
-  case class ConstInteger(value: BigInt) extends Const(value.toString)
+  case class ConstInteger(value: BigInt) extends Const(value.toString) {
+    override def boolean: Option[Boolean] = Some(value > 0)
+  }
 
   case class ConstFloat(value: BigDecimal) extends Const(value.toString)
 

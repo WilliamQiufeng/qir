@@ -18,12 +18,14 @@ trait Block {
   def label: Label
   def tacs: View[Tac]
   def terminator: Terminator
+  def isEmpty: Boolean
 }
 case class NormalBlock(label: Label, normalTacs: List[NormalTac], terminator: Terminator) extends Block {
   override def tacs: View[Tac] = normalTacs.view.appended(terminator)
   override def toString: String = s"Block $label${tacs.mkString("{\n  ", "\n  ", "\n}")}"
 
   def self: NormalBlock = this
+  def isEmpty: Boolean = normalTacs.isEmpty
 
   //  def fillDefUse(): Unit = {
   //    for tac <- tacs do

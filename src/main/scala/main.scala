@@ -6,7 +6,7 @@ import dag.FunctionDagGenerationPass
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
-import ssa.{ConventionalizeSsaPass, SCCPPass, SsaConstructionPass}
+import ssa.{ConventionalizeSsaPass, RemoveRedundantBlockPass, SCCPPass, SsaConstructionPass}
 import tac.asDot
 import util.lattices.setBoundedLattice
 import util.syntax.LatticeSyntax.MeetOps
@@ -28,7 +28,7 @@ def hi(): Unit = {
   println(l)
   val ast = parser.program.parse(l)
   println(ast)
-  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen ConventionalizeSsaPass
+  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen SCCPPass andThen RemoveRedundantBlockPass
 
   for i <- 0 to 0 do
     SemanticAnalysis(ast.get) match
