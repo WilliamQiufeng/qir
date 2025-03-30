@@ -4,8 +4,10 @@ import ast.{ConcreteFnDecl, LabelValue}
 import common.FunctionIR
 import scalax.collection.immutable.Graph
 import semantic.{FunctionSymbolTable, IRSymbol, Temp}
-import tac.{NormalBlock, Label, LabelEdge}
+import tac.{Label, LabelEdge, NormalBlock}
+import util.graph.Dominance.DominanceInfo
 
+import util.graph.Dominance.makeDominanceInfo
 
 case class FunctionInfo(functionDecl: ConcreteFnDecl,
                         returnSink: Temp,
@@ -18,7 +20,7 @@ case class FunctionInfo(functionDecl: ConcreteFnDecl,
                         tempMap: Map[Temp, IRSymbol],
                         header: FunctionHeader
                        ) extends FunctionIR, WithFunctionInfo {
-
+  lazy val dominanceInfo: DominanceInfo[Label] = flowGraph.makeDominanceInfo(startBlock)
   override def functionInfo: FunctionInfo = this
 }
 

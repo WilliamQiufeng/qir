@@ -7,6 +7,7 @@ import scalax.collection.immutable.Graph
 import semantic.{FunctionSymbolTable, SsaNormalSymbol, SsaSymbol, Temp}
 import ssa.SsaGraph.GraphType
 import tac.{Label, LabelEdge, asDot}
+import util.graph.Dominance.{DominanceInfo, makeDominanceInfo}
 
 import scala.collection.mutable
 
@@ -46,4 +47,5 @@ case class SsaFunctionInfo(functionDecl: ConcreteFnDecl,
   ).mkString("DefUse:\n  ", "\n  ", "")
 
   override def functionInfo: SsaFunctionInfo = this
+  lazy val dominanceInfo: DominanceInfo[Label] = flowGraph.makeDominanceInfo(startBlock) 
 }

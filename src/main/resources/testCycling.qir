@@ -1,4 +1,6 @@
 fn @test(): Unit
+    declare $x: Int
     @A: goto @B
     @B: goto @C
-    @C: goto @A
+    @C: $x = $x
+        goto @A
