@@ -53,10 +53,7 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
 
 
   // Construct graph
-  val graph: Graph[Label, LabelEdge] = makeFlowGraph(
-    labelMap,
-    startBlock,
-    functionDecl.block.labelledBlocks.headOption.map(_.name))
+  val graph: Graph[Label, LabelEdge] = makeFlowGraph(labelMap, startBlock)
 
   private implicit def valueTypeToType(valueType: ast.ValueType): Type =
     semanticAnalysis.lookupValueType(valueType).get
@@ -118,10 +115,11 @@ case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, priva
 }
 
 object FunctionDag {
-  def makeFlowGraph(labelMap: Map[Label, Block], startBlock: Label, entryBlock: Option[Label]): Graph[Label, LabelEdge] = {
+  def makeFlowGraph(labelMap: Map[Label, Block], startBlock: Label): Graph[Label, LabelEdge] = {
     val edges = labelMap.values.flatMap { block =>
       block.terminator.targets.map(LabelEdge(block.label, _))
     }
+    val entryBlock = labelMap(startBlock).terminator.targets.headOption
     // Construct graph
     Graph.from(labelMap.keys, entryBlock match {
       case None => edges

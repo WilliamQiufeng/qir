@@ -23,12 +23,12 @@ def hi(): Unit = {
     println(x ^ y)
     println(x > y)
   }
-  val f = io.Source.fromResource("testSCCP1.qir")
+  val f = io.Source.fromResource("testCycling.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)
   println(ast)
-  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen ConventionalizeSsaPass
+  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen SCCPPass andThen RemoveRedundantBlockPass
 
   for i <- 0 to 0 do
     SemanticAnalysis(ast.get) match
@@ -43,6 +43,7 @@ def hi(): Unit = {
                 case Left(value) => println(value)
                 case Right(ssaFunctionInfo) =>
                   println(ssaFunctionInfo.functionInfo.symbolTable)
+                  println(ssaFunctionInfo.functionInfo.labelMap)
                   println(ssaFunctionInfo.functionInfo.toDot)
                   println(ssaFunctionInfo.functionInfo.tempMap)
                   println("Def-Use: ")

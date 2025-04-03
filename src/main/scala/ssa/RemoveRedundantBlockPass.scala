@@ -4,16 +4,15 @@ import cats.implicits.toSemigroupKOps
 import common.{CompilerContext, FunctionPass, FunctionPassResult}
 import dag.FunctionDag
 import semantic.ConstIRSymbol
-import tac.{Branch, Goto, Label}
+import tac.{Branch, Goto, Label, Terminator}
 import util.graph.Traversal.traverseDfsFold
 
 case object RemoveRedundantBlockPass extends FunctionPass[WithSsaFunctionInfo, WithSsaFunctionInfo] {
   override def apply(in: WithSsaFunctionInfo)(implicit ctx: CompilerContext): FunctionPassResult[WithSsaFunctionInfo] = {
     val functionInfo = in.functionInfo
-    // TODO fix cycling
     val remapping = functionInfo.flowGraph.outerNodeDownUpTraverser(functionInfo.flowGraph get functionInfo.startBlock)
-      .foldLeft[Map[Label, Option[Label]]](
-        functionInfo.labelMap.map { case (label, _) => label -> None }
+      .foldLeft[Map[Label, Terminator]](
+        functionInfo.labelMap.map { case (label, b) => label -> b.terminator }
       ) {
         case (m, (down, l)) if !down =>
           val t = functionInfo.labelMap(l).terminator
@@ -29,21 +28,17 @@ case object RemoveRedundantBlockPass extends FunctionPass[WithSsaFunctionInfo, W
           m + (l -> (
             next match
               // l -> someNext -> possibly next of someNext
-              case Some(someNext) => if functionInfo.labelMap(someNext).isEmpty then m(someNext) <+> next else next
-              case None => next
+              case Some(someNext) if functionInfo.labelMap(someNext).isEmpty => m(someNext)
+              case _ => t
             ))
         case (m, _) => m
       }
 
     val unprunedLabelMap = functionInfo.labelMap.map {
-      case (label, block) => label -> remapping(label).map(next => block.rewriteTerminator(Goto(next))).getOrElse(block)
+      case (label, block) => label -> block.rewriteTerminator(remapping(label))
     }
 
-    val graph1 = FunctionDag.makeFlowGraph(
-      unprunedLabelMap,
-      functionInfo.startBlock,
-      Some(unprunedLabelMap(functionInfo.startBlock).terminator.targets(0))
-    )
+    val graph1 = FunctionDag.makeFlowGraph(unprunedLabelMap, functionInfo.startBlock)
 
     val prunedLabelMap = graph1.traverseDfsFold(graph1 get functionInfo.startBlock, Set.empty[Label]) {
       case (s, next) => s.incl(next)
@@ -53,11 +48,7 @@ case object RemoveRedundantBlockPass extends FunctionPass[WithSsaFunctionInfo, W
     Right(in.updatedFunctionInfo(
       functionInfo.copy(
         labelMap = prunedLabelMap,
-        flowGraph = FunctionDag.makeFlowGraph(
-          prunedLabelMap,
-          functionInfo.startBlock,
-          Some(prunedLabelMap(functionInfo.startBlock).terminator.targets(0))
-        )
+        flowGraph = FunctionDag.makeFlowGraph(prunedLabelMap, functionInfo.startBlock)
       )
     ))
   }
