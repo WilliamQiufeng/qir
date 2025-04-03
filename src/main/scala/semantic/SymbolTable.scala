@@ -16,7 +16,7 @@ case class NormalIRSymbol(temp: Temp, ty: Type, debugName: Option[String] = None
 }
 
 case class TypeIRSymbol(ty: Type, debugName: Option[String] = None) extends IRSymbol {
-  override val temp: Temp = Temp()
+  override val temp: Temp = Temp.make
   override val undefined: Boolean = false
 }
 
@@ -40,7 +40,7 @@ case class SsaNormalSymbol(temp: Temp, ty: Type,
 case class SsaDerivedSymbol(origin: SsaRootSymbol) extends SsaSymbol {
   override def toString = s"$origin.$temp"
 
-  override val temp: Temp = Temp()
+  override val temp: Temp = Temp.make
   override val ty: Type = origin.ty
   override val debugName: Option[String] = Some(s"${origin.debugName}.${temp.id}")
   override val undefined: Boolean = false
@@ -101,7 +101,7 @@ case class StructSymbolTable(fieldTypes: List[NormalIRSymbol] = List.empty) exte
 
 object StructSymbolTable {
   def from(types: List[Type]): StructSymbolTable =
-    StructSymbolTable(types map (x => NormalIRSymbol(Temp(), x)))
+    StructSymbolTable(types map (x => NormalIRSymbol(Temp.make, x)))
 }
 
 case class FunctionSymbolTable(symbolMap: Map[String, IRSymbol] = Map.empty) extends HashMapSymbolTable[IRSymbol, FunctionSymbolTable] {

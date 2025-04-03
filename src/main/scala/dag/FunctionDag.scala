@@ -17,22 +17,22 @@ case object FunctionDagGenerationPass extends FunctionPass[ast.ConcreteFnDecl, F
 }
 
 case class FunctionDag(private val semanticAnalysis: SemanticAnalysisInfo, private val functionDecl: ast.ConcreteFnDecl) {
-  private val returnSink: Temp = Temp()
+  private val returnSink: Temp = Temp.make
   private val startBlock: Label = Label()
   private val endBlock: Label = Label()
-  private val arguments: List[Temp] = functionDecl.args.map(_ => Temp())
+  private val arguments: List[Temp] = functionDecl.args.map(_ => Temp.make)
   val symbolTable: FunctionSymbolTable = {
     val table = functionDecl.args.zip(arguments).foldLeft(FunctionSymbolTable())((table, arg) =>
       table.insert(arg._1.name, NormalIRSymbol(arg._2, arg._1.ty, arg._1.name.some)))
     functionDecl.block.declarations.foldLeft(table)((table, declaration) => declaration match
       case ast.Declaration(local, ty) => table.insert(
         local.name,
-        NormalIRSymbol(Temp(), ty, local.name.some, true)
+        NormalIRSymbol(Temp.make, ty, local.name.some, true)
       )
 
       case ast.FunctionConstDecl(local, const) => table.insert(
         local.name,
-        ConstIRSymbol(const, Temp(), semantic.lookupConstType[Option](const).get)
+        ConstIRSymbol(const, Temp.make, semantic.lookupConstType[Option](const).get)
       )
     )
   }

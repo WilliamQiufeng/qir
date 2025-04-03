@@ -38,7 +38,7 @@ case object SCCPPass extends FunctionPass[WithSsaFunctionInfo, SsaFunctionInfo] 
     for (_, lattice) <- result.value do
       lattice match
         case ConstantValue(value) =>
-          val temp = Temp()
+          val temp = Temp.make
           newTempMapMut += (temp -> ConstIRSymbol(value, temp, semantic.lookupConstType[Option](value).get))
           constMapMut += value -> temp
         case _ => ()

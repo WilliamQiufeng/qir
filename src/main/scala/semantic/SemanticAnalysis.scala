@@ -57,7 +57,7 @@ object SemanticAnalysis {
       constTy <- lookupConstType(value)
       resultSymbol <- maybeSymbol match {
         case None =>
-          val newConst = ConstIRSymbol(value, Temp(), constTy, name)
+          val newConst = ConstIRSymbol(value, Temp.make, constTy, name)
           S.modify(info => info.copy(constMap = info.constMap + (value -> newConst), constTempMap = info.constTempMap + (newConst.temp -> newConst))) *>
             S.monad.pure(newConst)
         case Some(v) => S.monad.pure(v)
@@ -119,7 +119,7 @@ object SemanticAnalysis {
       for {
         argTypes <- args.traverse(a => translateValueType(a.ty, visited))
         retType <- translateValueType(retTy, visited)
-        symbol <- getOrAddGlobal(name, NormalIRSymbol(Temp(), FunctionType(argTypes, retType), name.some))
+        symbol <- getOrAddGlobal(name, NormalIRSymbol(Temp.make, FunctionType(argTypes, retType), name.some))
       } yield symbol)
 
   private def fillUnitDeclaration[F[_] : Monad](name: String, programUnit: ProgramUnit, visited: Set[String])
