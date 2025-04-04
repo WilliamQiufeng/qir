@@ -1,4 +1,4 @@
-fn @f(): Int
+fn @f($a: Int, $b: Int): Int
     declare $x: Int
     declare $y: Int
     declare $noCopySrc1: Int
@@ -9,28 +9,37 @@ fn @f(): Int
     declare $copySink1: Int
     declare $copySink2: Int
     declare $copyX: Int
+    declare $meaninglessBr1: Int
     declare $redundantBr1: Int
+    declare $redundantBr2: Int
+    declare $redundantBrSink: Int
     declare $sink: Int
     const $1 = 1
     const $2 = 2
-    @A: $x = $1
-        $y = $2
+    @A: $x = $a
+        $y = $b
         $copySrc1 = muli $x $y
-        branch $1 @B @C
+        branch $a @B @C
     @B: $noCopySrc1 = addi $x $y
-        $redundantBr1 = $1
+        $meaninglessBr1 = $1
+        $redundantBr1 = $x
+        $redundantBr2 = $x
         goto @D
     @C: $noCopySrc2 = subi $x $y
-        $redundantBr1 = $1
+        $meaninglessBr1 = $1
+        $redundantBr1 = $y
+        $redundantBr2 = $y
         goto @D
     @D: $noCopySink1 = addi $x $y
         $noCopySink2 = subi $x $y
         $copySink1 = muli $x $y
         $copyX = $x
-        $copySink2 = muli $copyX $y
+        $copySink2 = muli $y $copyX
+        $redundantBrSink = addi $redundantBr1 $redundantBr2
         $sink = addi $noCopySink1 $noCopySink2
         $sink = addi $sink $copyX
         $sink = addi $sink $copySink1
         $sink = addi $sink $copySink2
-        $sink = addi $sink $redundantBr1
+        $sink = addi $sink $meaninglessBr1
+        $sink = addi $sink $redundantBrSink
         ret $sink

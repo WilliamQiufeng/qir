@@ -9,17 +9,17 @@ import semantic.Temp
 import tac.*
 
 case object DominatorBasedValueNumbering extends FunctionPass[WithSsaFunctionInfo, WithSsaFunctionInfo] {
-  type ValueNumber = Temp
-  type ValueNumbering = Map[CanonicalisedExpression, ValueNumber]
-  type PartialReader[T] = Reader[ValueNumbering, T]
-  type NumberingState[T] = StateT[PartialReader, NumberingStateObject, T]
-  type NumberingStateObject = Map[Label, BlockRewriteInfo]
+  private type ValueNumber = Temp
+  private type ValueNumbering = Map[CanonicalisedExpression, ValueNumber]
+  private type PartialReader[T] = Reader[ValueNumbering, T]
+  private type NumberingState[T] = StateT[PartialReader, NumberingStateObject, T]
+  private type NumberingStateObject = Map[Label, BlockRewriteInfo]
 
-  def getOrKey(temp: Temp)(implicit map: Map[Temp, ValueNumber]) = map.getOrElse(temp, temp)
+  private def getOrKey(temp: Temp)(implicit map: Map[Temp, ValueNumber]) = map.getOrElse(temp, temp)
 
-  def getByExpr(expr: Expression, default: => ValueNumber)(implicit map: Map[CanonicalisedExpression, ValueNumber]) = map.getOrElse(expr, default)
+  def getByExpr(expr: Expression, default: => ValueNumber)(implicit map: Map[CanonicalisedExpression, ValueNumber]): ValueNumber = map.getOrElse(expr, default)
 
-  def getByTemp(temp: Temp)(implicit map: ValueNumbering) = map.getOrElse(TempExpr(temp), temp)
+  private def getByTemp(temp: Temp)(implicit map: ValueNumbering) = map.getOrElse(TempExpr(temp), temp)
 
   override def apply(in: WithSsaFunctionInfo)(implicit ctx: CompilerContext): FunctionPassResult[WithSsaFunctionInfo] = {
     val performance = perform[NumberingState](in.functionInfo.startBlock)(implicitly, implicitly, implicitly, in)
@@ -49,14 +49,16 @@ case object DominatorBasedValueNumbering extends FunctionPass[WithSsaFunctionInf
     Right(in.updatedFunctionInfo(in.functionInfo.copy(labelMap = newLabelMap)))
   }
 
-  def numberSingleBlock[F[_] : Monad](blockLabel: Label)
-                                     (implicit S: Stateful[F, NumberingStateObject], R: Local[F, ValueNumbering], in: WithSsaFunctionInfo): F[ValueNumbering] = {
+  private def numberSingleBlock[F[_] : Monad](blockLabel: Label)
+                                             (implicit S: Stateful[F, NumberingStateObject], R: Local[F, ValueNumbering], in: WithSsaFunctionInfo): F[ValueNumbering] = {
     for
       dominatorNumbering <- R.ask
       phiMap <- S.inspect(_(blockLabel).phiMap)
       _ = println(s"Numbering $blockLabel with $dominatorNumbering")
       block = in.functionInfo.labelMap(blockLabel)
     yield block.tacs.foldLeft(dominatorNumbering) { case (currentNumbering, inst) => findExpr(inst, currentNumbering, phiMap) match
+      case Some(TempExpr(t)) =>
+        currentNumbering ++ inst.definitions.map(dst => TempExpr(dst) -> t)
       case Some(expr) =>
         val canon = canonicalise(expr)
         println(canon)
@@ -78,7 +80,7 @@ case object DominatorBasedValueNumbering extends FunctionPass[WithSsaFunctionInf
     }
   }
 
-  def findExpr(inst: Tac, valueNumbering: ValueNumbering, phiMap: Map[Label, Map[Temp, ValueNumber]]): Option[Expression] = {
+  private def findExpr(inst: Tac, valueNumbering: ValueNumbering, phiMap: Map[Label, Map[Temp, ValueNumber]]): Option[Expression] = {
     implicit val numbering: ValueNumbering = valueNumbering
     inst match {
       case phi: Phi =>
@@ -86,7 +88,7 @@ case object DominatorBasedValueNumbering extends FunctionPass[WithSsaFunctionInf
           if incoming.forall(_ == incoming.head) then
             Some(TempExpr(incoming.head))
           else
-            Some(PhiExpr(phi.pairs.map { case (k, v) => k -> getByTemp(v) }))
+            Some(PhiExpr(phi.blockLabels.zip(incoming).toMap))
         case BinaryArith(_, l, r, op) => op match
           case BinaryArithOp.AddI => Some(Add(getByTemp(l), getByTemp(r)))
           case BinaryArithOp.SubI => Some(Sub(getByTemp(l), getByTemp(r)))
@@ -99,8 +101,8 @@ case object DominatorBasedValueNumbering extends FunctionPass[WithSsaFunctionInf
     }
 
 
-  def perform[F[_] : Monad](blockLabel: Label)
-                           (implicit S: Stateful[F, NumberingStateObject], R: Local[F, ValueNumbering], in: WithSsaFunctionInfo): F[Unit] =
+  private def perform[F[_] : Monad](blockLabel: Label)
+                                   (implicit S: Stateful[F, NumberingStateObject], R: Local[F, ValueNumbering], in: WithSsaFunctionInfo): F[Unit] =
     for
       newNumbering <- numberSingleBlock(blockLabel)
       newTempNumberings = newNumbering.flatMap {
@@ -118,28 +120,28 @@ case object DominatorBasedValueNumbering extends FunctionPass[WithSsaFunctionInf
 
   sealed trait Expression
 
-  case class Add(left: ValueNumber, right: ValueNumber) extends Expression
+  private case class Add(left: ValueNumber, right: ValueNumber) extends Expression
 
-  case class Sub(left: ValueNumber, right: ValueNumber) extends Expression
+  private case class Sub(left: ValueNumber, right: ValueNumber) extends Expression
 
-  case class Mul(left: ValueNumber, right: ValueNumber) extends Expression
+  private case class Mul(left: ValueNumber, right: ValueNumber) extends Expression
 
-  case class Div(left: ValueNumber, right: ValueNumber) extends Expression
+  private case class Div(left: ValueNumber, right: ValueNumber) extends Expression
 
-  case class And(left: ValueNumber, right: ValueNumber) extends Expression
+  private case class And(left: ValueNumber, right: ValueNumber) extends Expression
 
-  case class Or(left: ValueNumber, right: ValueNumber) extends Expression
+  private case class Or(left: ValueNumber, right: ValueNumber) extends Expression
 
   case class Not(valueNumber: ValueNumber) extends Expression
 
-  case class TempExpr(temp: Temp) extends Expression
+  private case class TempExpr(temp: Temp) extends Expression
 
-  case class PhiExpr(mapping: Map[Label, ValueNumber]) extends Expression
+  private case class PhiExpr(mapping: Map[Label, ValueNumber]) extends Expression
 
   case class BlockRewriteInfo(normalMap: Map[Temp, ValueNumber],
                               phiMap: Map[Label, Map[Temp, ValueNumber]])
 
-  def canonicalise(expression: Expression): CanonicalisedExpression = expression match
+  private def canonicalise(expression: Expression): CanonicalisedExpression = expression match
     case Add(left, right) if left.id > right.id => Add(right, left)
     case Mul(left, right) if left.id > right.id => Mul(right, left)
     case And(left, right) if left.id > right.id => And(right, left)

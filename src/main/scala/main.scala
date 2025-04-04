@@ -28,7 +28,7 @@ def hi(): Unit = {
   println(l)
   val ast = parser.program.parse(l)
   println(ast)
-  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen DominatorBasedValueNumbering
+  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen SCCPPass andThen RemoveRedundantBlockPass andThen DominatorBasedValueNumbering andThen DominatorBasedValueNumbering
 
   for i <- 0 to 0 do
     SemanticAnalysis(ast.get) match
