@@ -6,7 +6,7 @@ import dag.FunctionDagGenerationPass
 import parsley.Parsley
 import parsley.syntax.character.{charLift, stringLift}
 import semantic.SemanticAnalysis
-import ssa.{ConventionalizeSsaPass, RemoveRedundantBlockPass, SCCPPass, SsaConstructionPass}
+import ssa.{ConventionalizeSsaPass, DominatorBasedValueNumbering, RemoveRedundantBlockPass, SCCPPass, SsaConstructionPass}
 import tac.asDot
 import util.lattices.setBoundedLattice
 import util.syntax.LatticeSyntax.MeetOps
@@ -23,12 +23,12 @@ def hi(): Unit = {
     println(x ^ y)
     println(x > y)
   }
-  val f = io.Source.fromResource("testCfg32.qir")
+  val f = io.Source.fromResource("testDBVN.qir")
   val l = try f.mkString finally f.close()
   println(l)
   val ast = parser.program.parse(l)
   println(ast)
-  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass
+  val pipeline = FunctionDagGenerationPass andThen SsaConstructionPass andThen DominatorBasedValueNumbering
 
   for i <- 0 to 0 do
     SemanticAnalysis(ast.get) match
@@ -49,7 +49,7 @@ def hi(): Unit = {
                   println("Def-Use: ")
                   println(ssaFunctionInfo.functionInfo.defUseToString)
                   println(ssaFunctionInfo.functionInfo.ssaGraph.asDot(_.toStringMapped(ssaFunctionInfo.functionInfo.tempMap)))
-                  println(ssaFunctionInfo.functionInfo.dominanceInfo.dominationTree.asDot(ssaFunctionInfo.labelMap))
+                  println(ssaFunctionInfo.functionInfo.dominanceInfo.dominationTree.asDot(ssaFunctionInfo.functionInfo.labelMap))
 //                  val s = SparseConditionalConstantPropagation(ssaFunctionInfo).result
 //                  println(s.value.mkString("\n"))
             case _ =>

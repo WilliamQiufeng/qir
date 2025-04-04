@@ -1,0 +1,7 @@
+fn @f(): Int
+    declare $x: Int
+    const $1 = 1
+    @A: $x = $1
+        $x = addi $x $x
+        $x = muli $x $1
+        ret $x
