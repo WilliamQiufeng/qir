@@ -1,34 +1,37 @@
 package semantic
 
 import ast.*
+import semantic.Const as SemanticConst
 import cats.Monad
 import cats.data.{State, StateT}
 import cats.mtl.Handle.handleStateT
 import cats.mtl.{Handle, Raise, Stateful}
 import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId}
-import cats.syntax.all.{toFlatMapOps, toFunctorOps, catsSyntaxApplyOps, toTraverseOps, toFoldableOps}
+import cats.syntax.all.{catsSyntaxApplyOps, toFlatMapOps, toFoldableOps, toFunctorOps, toTraverseOps}
+
+import scala.language.implicitConversions
 
 private type PartialEither[T] = Either[SemanticError, T]
 private type PartialState[T] = State[SemanticAnalysisInfo, T]
 private type SemanticAnalysisState[A] = StateT[PartialEither, SemanticAnalysisInfo, A]
 
 case class SemanticAnalysisInfo(globalSymbolTable: GlobalSymbolTable = GlobalSymbolTable(),
-                                constMap: Map[Const, ConstIRSymbol] = Map.empty,
-                                constTempMap: Map[Temp, ConstIRSymbol] = Map.empty,
+                                constMap: Map[SemanticConst[?], ConstIRSymbol[?]] = Map.empty,
+                                constTempMap: Map[Temp, ConstIRSymbol[?]] = Map.empty,
                                 programUnitMap: Map[String, ProgramUnit],
                                 typeSymbolTable: TypeSymbolTable = TypeSymbolTable()) {
   def lookupValueType(valueType: ValueType): Option[Type] = valueType match
     case TypePointer(element) => PointerType(() => lookupValueType(element).get).some
     case TypeStruct(name) => typeSymbolTable.lookup(name).map(_.ty)
     case TypeUnit => UnitType.some
-    case TypeInt => IntType.some
+    case TypeInt => IntType(32).some
     case TypeChar => CharType.some
     case TypeFloat => FloatType.some
 }
 
-def lookupConstType[F[_]: Monad](const: Const): F[Type] = {
+def lookupConstType[F[_]: Monad](const: ast.Const): F[Type] = {
   const match
-    case ast.ConstInteger(_) => IntType.pure
+    case ast.ConstInteger(_) => IntType(32).pure
     case ast.ConstFloat(_) => FloatType.pure
     case ast.ConstString(_) => PointerType(() => CharType).pure
     case ast.ConstChar(_) => CharType.pure
@@ -50,15 +53,15 @@ object SemanticAnalysis {
     yield argDec.ty
   }
 
-  private def getOrAddConst[F[_] : Monad](value: Const, name: Option[String] = None)
-                                         (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[ConstIRSymbol] =
+  private def getOrAddConst[F[_] : Monad](value: ast.Const, name: Option[String] = None)
+                                         (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[ConstIRSymbol[?]] =
     for
       maybeSymbol <- S.inspect(_.constMap.get(value))
       constTy <- lookupConstType(value)
       resultSymbol <- maybeSymbol match {
         case None =>
           val newConst = ConstIRSymbol(value, Temp.make, constTy, name)
-          S.modify(info => info.copy(constMap = info.constMap + (value -> newConst), constTempMap = info.constTempMap + (newConst.temp -> newConst))) *>
+          S.modify(info => info.copy(constMap = info.constMap + (translateConst(value) -> newConst), constTempMap = info.constTempMap + (newConst.temp -> newConst))) *>
             S.monad.pure(newConst)
         case Some(v) => S.monad.pure(v)
       }
@@ -86,7 +89,7 @@ object SemanticAnalysis {
       }
     yield resultSymbol
 
-  private def insertConst[F[_] : Monad](name: String, value: Const)
+  private def insertConst[F[_] : Monad](name: String, value: ast.Const)
                                        (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[IRSymbol] = {
     for
       constSymbol <- getOrAddConst(value, name.some)
@@ -108,10 +111,10 @@ object SemanticAnalysis {
         yield PointerType(() => translateValueType[SemanticAnalysisState](element, visited).runA(x).toOption.get)
       case TypeStruct(name) => fillDeclaration(name, visited)
       case TypeUnit => UnitType.pure
-      case TypeInt => IntType.pure
+      case TypeInt => IntType(32).pure
       case TypeChar => CharType.pure
       case TypeFloat => FloatType.pure
-
+ 
 
   private def fillFnDecl[F[_] : Monad](name: String, args: List[Param], retTy: ValueType, visited: Set[String])
                                       (implicit H: Handle[F, SemanticError], S: Stateful[F, SemanticAnalysisInfo]): F[IRSymbol] =
@@ -156,3 +159,11 @@ object SemanticAnalysis {
     res.runS(SemanticAnalysisInfo(programUnitMap = programUnitMap))
   }
 }
+
+implicit def translateConst(const: ast.Const): SemanticConst[?] = const match
+  case ConstInteger(value) => semantic.ConstInt(value, 32)
+  case ConstFloat(value) => ???
+  case ConstString(value) => ???
+  case ConstChar(value) => semantic.ConstChar(value)
+  case ast.ConstUndefined => semantic.ConstUndefined
+  case ast.ConstUnit => semantic.ConstUnit

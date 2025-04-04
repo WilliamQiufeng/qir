@@ -46,7 +46,7 @@ case class SsaDerivedSymbol(origin: SsaRootSymbol) extends SsaSymbol {
   override val undefined: Boolean = false
 }
 
-case class ConstIRSymbol(const: ast.Const,
+case class ConstIRSymbol[+T](const: semantic.Const[T],
                          temp: Temp,
                          ty: Type,
                          debugName: Option[String] = None) extends SsaRootSymbol {

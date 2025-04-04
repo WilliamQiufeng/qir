@@ -133,7 +133,7 @@ case class Ret(source: Temp) extends Terminator, NoDefinition, SingleSource {
 
 case class Phi(definition: Temp, sources: IndexedSeq[Temp], blockLabels: IndexedSeq[Label]) extends Tac, SingleDefinition {
   private val labelIndex = Map.from(blockLabels.zipWithIndex)
-  def pairs: View[(Temp, Label)] = sources.view.zip(blockLabels)
+  def pairs: Map[Label, Temp] = blockLabels.zip(sources).toMap
 
   def replace(label: Label, transform: Temp => Temp, tac: Phi): Phi = {
     labelIndex.get(label) match

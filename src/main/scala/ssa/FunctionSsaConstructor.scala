@@ -22,20 +22,15 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
       val varKill: mutable.Set[Temp] = mutable.Set.empty
       for i <- b.tacs do
         res = res | i.sources.filterNot(varKill.contains).toSet
+        varKill.addAll(i.definitions)
+
     res
   }
   private val globalBlocks: Map[Temp, Set[Label]] = {
-    val res = mutable.HashMap.empty[Temp, Set[Label]]
+    val res = mutable.HashMap.empty[Temp, Set[Label]].withDefaultValue(Set.empty)
     for b <- functionInfo.flowGraph.nodes.outerIterator.map(functionInfo.labelMap) do
-      val varKill: mutable.Set[Temp] = mutable.Set.empty
       for i <- b.tacs do
-        i.definitions.foreach(dst =>
-          varKill.addOne(dst)
-          res.updateWith(dst) {
-            case None => Some(Set.empty)
-            case Some(s) => Some(s + b.label)
-          }
-        )
+        i.definitions.foreach(dst => res.update(dst, res(dst) + b.label))
     res.toMap
   }
   private val labelMap: mutable.Map[Label, BasicSsaBlock] = mutable.HashMap.from(
@@ -55,7 +50,7 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
     if !newTempMap.contains(k) then
       newTempMap +=
         k -> (v match
-          case c: ConstIRSymbol => c
+          case c: ConstIRSymbol[_] => c
           case _ => SsaNormalSymbol(v.temp, v.ty, v.debugName, v.undefined)
           )
 
@@ -109,7 +104,7 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
           normalTacs = block.normalTacs.map { i =>
             val newSources = rewriteSources(i)
             val newDefinitions = i.definitions.map { definition =>
-              if globals.contains(definition) then newName(definition).temp else definition
+              newName(definition).temp
             }
             i.rewrite(newDefinitions, newSources)
           },
@@ -134,7 +129,7 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
 
   private def rewriteSources(i: Tac) = {
     i.sources.map { src =>
-      if globals.contains(src) && getStack(src).nonEmpty then
+      if getStack(src).nonEmpty then
         getStack(src).top
       else
         src
@@ -142,6 +137,6 @@ case class FunctionSsaConstructor(functionInfo: FunctionInfo) extends WithFuncti
   }
 
   private def findNewReturnSink: Temp = labelMap(functionInfo.endBlock).terminator match
-      case Ret(src) => src
-      case _ => throw RuntimeException()
+    case Ret(src) => src
+    case _ => throw RuntimeException()
 }

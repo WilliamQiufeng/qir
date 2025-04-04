@@ -17,7 +17,7 @@ case object ConventionalizeSsaPass extends FunctionPass[WithSsaFunctionInfo, Wit
     do
       for phi <- block.phis do
         val mapping = mutable.Map.empty[Temp, Temp]
-        for (a, predLabel) <- phi.pairs do
+        for (predLabel, a) <- phi.pairs do
           val aDef = in.functionInfo.defUse(a).definition
           // if the definition of a_i does not dominate PC_i then continue;
           if !aDef.exists { case SsaBlockTac(_, aDefLabel) => in.functionInfo.dominanceInfo.dominationMap.dom(aDefLabel, predLabel) } then

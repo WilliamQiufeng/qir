@@ -13,7 +13,7 @@ import util.syntax.LatticeSyntax.MeetOps
 import scala.collection.mutable
 
 case object SCCPPass extends FunctionPass[WithSsaFunctionInfo, SsaFunctionInfo] {
-  private def replace[T <: Tac](t: T, mapping: Map[Temp, ConstantLattice[ast.Const]], constMap: Map[ast.Const, Temp]): Option[T] = {
+  private def replace[T <: Tac](t: T, mapping: Map[Temp, ConstantLattice[semantic.Const[?]]], constMap: Map[semantic.Const[?], Temp]): Option[T] = {
     if t.definitions.flatMap(mapping.get).exists(_ match
       case ConstantValue(value) => true
       case _ => false)
@@ -34,12 +34,12 @@ case object SCCPPass extends FunctionPass[WithSsaFunctionInfo, SsaFunctionInfo] 
     val result = SparseConditionalConstantPropagation(functionInfo).result
     var newSymbolTable = functionInfo.symbolTable
     val newTempMapMut = mutable.Map.from(functionInfo.tempMap)
-    val constMapMut = mutable.Map.empty[ast.Const, Temp]
+    val constMapMut = mutable.Map.empty[semantic.Const[?], Temp]
     for (_, lattice) <- result.value do
       lattice match
         case ConstantValue(value) =>
           val temp = Temp.make
-          newTempMapMut += (temp -> ConstIRSymbol(value, temp, semantic.lookupConstType[Option](value).get))
+          newTempMapMut += (temp -> ConstIRSymbol(value, temp, value.ty))
           constMapMut += value -> temp
         case _ => ()
     val newTempMap = newTempMapMut.toMap
@@ -65,14 +65,14 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
   private val ssaGraph: GraphType = ssaFunctionInfo.ssaGraph
   private val ssaWorklist: mutable.Queue[ssaGraph.EdgeT] = mutable.Queue.empty[ssaGraph.EdgeT]
   private val cfgWorklist = mutable.Queue.from(ssaFunctionInfo.flowGraph.get(ssaFunctionInfo.startBlock).edges)
-  private val value = mutable.Map.empty[Temp, ConstantLattice[ast.Const]]
+  private val value = mutable.Map.empty[Temp, ConstantLattice[semantic.Const[?]]]
   private val executable = mutable.Set.empty[ssaFunctionInfo.flowGraph.EdgeT]
   run()
   val result: Result = Result(value.toMap, executable.map(edge => LabelEdge(edge.source, edge.target)).toSet)
 
-  case class Result(value: Map[Temp, ConstantLattice[ast.Const]], executable: Set[LabelEdge])
+  case class Result(value: Map[Temp, ConstantLattice[semantic.Const[?]]], executable: Set[LabelEdge])
 
-  private def valueOf(temp: Temp): ConstantLattice[ast.Const] = {
+  private def valueOf(temp: Temp): ConstantLattice[semantic.Const[?]] = {
     value.getOrElseUpdate(temp, ConstantTop)
   }
 
@@ -87,14 +87,14 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
             case ConstantBottom =>
               cfgWorklist += edge1
               cfgWorklist += edge2
-            case ConstantValue(value: ast.Const) =>
+            case ConstantValue(value: semantic.Const[?]) =>
               cfgWorklist += (if value.boolean.exists{x => x} then edge1 else edge2)
             case _ => ()
         case Ret(_) => ()
       case _ => throw new Exception("This should not happen")
   }
 
-  private def evaluate(t: Tac, blockLabel: Label): ConstantLattice[ast.Const] = {
+  private def evaluate(t: Tac, blockLabel: Label): ConstantLattice[semantic.Const[?]] = {
     t match
       case _: tac.Terminator => throw new Exception("Jump shouldn't be handled here")
       case tac.BinaryArith(_, l, r, op) =>
@@ -102,21 +102,21 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
         val right = valueOf(r)
         op match
           case BinaryArithOp.AddI => left.combine(right)((_, _) match
-            case (ast.ConstInteger(a), ast.ConstInteger(b)) => ast.ConstInteger(a + b)
+            case (semantic.ConstInt(a, _), semantic.ConstInt(b, _)) => semantic.ConstInt(a + b)
             case _ => throw new Exception("Type mismatch")
           )
           case BinaryArithOp.SubI => left.combine(right)((_, _) match
-            case (ast.ConstInteger(a), ast.ConstInteger(b)) => ast.ConstInteger(a - b)
+            case (semantic.ConstInt(a, _), semantic.ConstInt(b, _)) => semantic.ConstInt(a - b)
             case _ => throw new Exception("Type mismatch")
           )
-          case BinaryArithOp.MulI if left == ast.ConstInteger(0) || right == ast.ConstInteger(0) =>
-            ConstantValue(ast.ConstInteger(0))
+          case BinaryArithOp.MulI if left == semantic.ConstInt(0) || right == semantic.ConstInt(0) =>
+            ConstantValue(semantic.ConstInt(0))
           case BinaryArithOp.MulI => left.combine(right)((_, _) match
-            case (ast.ConstInteger(a), ast.ConstInteger(b)) => ast.ConstInteger(a * b)
+            case (semantic.ConstInt(a, _), semantic.ConstInt(b, _)) => semantic.ConstInt(a * b)
             case _ => throw new Exception("Type mismatch")
           )
           case BinaryArithOp.DivI => left.combine(right)((_, _) match
-            case (ast.ConstInteger(a), ast.ConstInteger(b)) => ast.ConstInteger(a / b)
+            case (semantic.ConstInt(a, _), semantic.ConstInt(b, _)) => semantic.ConstInt(a / b)
             case _ => throw new Exception("Type mismatch")
           )
       case tac.Move(_, src) => valueOf(src)
@@ -146,14 +146,14 @@ case class SparseConditionalConstantPropagation(ssaFunctionInfo: SsaFunctionInfo
           if executable.contains(ssaFunctionInfo.flowGraph get LabelEdge(srcLabel, blockLabel))
           then valueOf(srcTemp)
           else ConstantTop)
-        .foldLeft(ConstantTop)(constantBoundedLattice[ast.Const].meet))
+        .foldLeft(ConstantTop)(constantBoundedLattice[semantic.Const[?]].meet))
   }
 
   def run(): Unit = {
 
     for (temp, sym) <- ssaFunctionInfo.tempMap do
       value += temp -> (sym match
-        case const: ConstIRSymbol => ConstantValue(const.const)
+        case const: ConstIRSymbol[?] => ConstantValue(const.const)
         case _ => if sym.undefined then ConstantBottom else ConstantTop
         )
 

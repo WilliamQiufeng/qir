@@ -14,14 +14,13 @@ case object UndefinedType extends Type("Undefined") {
   override val size: Int = 0
 }
 
-case object IntType extends Type("Int") {
-  override val size = 4
+case class IntType(bits: Int) extends Type("Int") {
+  override val size: Int = (bits + 7) / 8
 }
 
 case object CharType extends Type("Char") {
   override val size = 1
 }
-
 
 case object FloatType extends Type("Float") {
   override val size = 8

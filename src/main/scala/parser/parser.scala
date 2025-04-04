@@ -41,6 +41,7 @@ package object parser {
       | ConstInteger(INTEGER)
       | ConstString(STRING)
       | ConstChar(CHAR)
+      | ("()" as ConstUnit)
       | ("undefined" as ConstUndefined)
   private val local: Parsley[Local] = Local(VAR_ID)
   private val labelValue: Parsley[LabelValue] = LabelValue(LABEL_ID)
