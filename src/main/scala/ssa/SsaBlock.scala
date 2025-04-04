@@ -36,7 +36,7 @@ case class BasicSsaBlock(label: Label, phis: List[Phi], normalTacs: IndexedSeq[N
   override def trailingTacs: View[Tac] = normalTacs.view.appended(terminator)
 
   override def toStringMapped[T](mapping: Temp => T): String =
-    s"Block $label {\n  ${tacs.map(_.toStringMapped(mapping)).mkString("\n  ")}}"
+    s"Block $label {\\l  ${tacs.map(_.toStringMapped(mapping)).mkString("\\l  ")}\\l}\\l"
 
   def self: BasicSsaBlock = this
 
@@ -59,7 +59,7 @@ case class SsaBlockPc(label: Label,
   override def trailingTacs: View[Tac] = Seq(pcAfterPhi).view.appendedAll(normalTacs).appended(pcAtEnd).appended(terminator)
 
   override def toStringMapped[B](mapping: Temp => B): String =
-    s"Block $label {\n  ${tacs.map(_.toStringMapped(mapping)).mkString("\n  ")}}"
+    s"Block $label {\\l  ${tacs.map(_.toStringMapped(mapping)).mkString("\\l  ")}\\l}\\l"
 
   override def rewrite(label: Label, phis: List[Phi], trailingTacs: IndexedSeq[Tac]): SsaBlockPc =
     SsaBlockPc(label,
